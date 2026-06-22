@@ -1,0 +1,550 @@
+@import '../../styles/variables';
+
+.summary {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - #{$header-height} - 48px);
+
+  // ─── Header (fixed top) ──────────────────────────────────────
+  &__header {
+    text-align: center;
+    flex-shrink: 0;
+    padding-bottom: 16px;
+  }
+
+  &__step-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary-light);
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  &__title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  &__desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  // ─── Info Cards (fixed top, horizontal row) ──────────────────
+  &__cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    flex-shrink: 0;
+    padding-bottom: 12px;
+  }
+
+  &__card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  &__card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &--blue   { background: rgba(#1565c0, 0.12); color: #42a5f5; }
+    &--green  { background: rgba(#2e7d32, 0.12); color: #66bb6a; }
+    &--orange { background: rgba(#f57c00, 0.12); color: #ffb74d; }
+    &--purple { background: rgba(#7b1fa2, 0.12); color: #ba68c8; }
+  }
+
+  &__card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__card-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 600;
+  }
+
+  &__card-content strong {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__card-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  // ─── Grand Totals Bar (fixed top) ────────────────────────────
+  &__totals {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius;
+    flex-shrink: 0;
+    margin-bottom: 12px;
+  }
+
+  &__total-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-surface, var(--bg-input));
+    border-radius: $border-radius-sm;
+    border: 1px solid var(--border-color);
+
+    svg { color: var(--primary-light); flex-shrink: 0; }
+
+    span {
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    strong {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    &--highlight {
+      border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+      background: color-mix(in srgb, var(--primary) 6%, var(--bg-card));
+
+      strong { color: var(--primary-light); }
+    }
+  }
+
+  // ─── Scrollable Body ─────────────────────────────────────────
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-right: 4px;
+    padding-bottom: 8px;
+
+    &::-webkit-scrollbar { width: 5px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+  }
+
+  // ─── Material Breakdown ──────────────────────────────────────
+  &__breakdown {
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+  }
+
+  &__breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+  }
+
+  &__breakdown-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--mat-color, var(--primary));
+    border-radius: $border-radius-sm;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__breakdown-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__breakdown-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__breakdown-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  &__breakdown-vals {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    span {
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-surface, var(--bg-input));
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+  }
+
+  // ─── Generic Section ────────────────────────────────────────
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+    }
+  }
+
+  &__section-count {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary-light);
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border: 2px dashed var(--border-color);
+    border-radius: $border-radius;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  // ─── Scanned Bags chips ──────────────────────────────────────
+  &__scanned-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__scanned-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Roboto Mono', monospace;
+    padding: 4px 12px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+
+    em {
+      font-style: normal;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: inherit;
+    }
+  }
+
+  // ─── Jobs List ───────────────────────────────────────────────
+  &__jobs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  // ─── Actions bar (fixed bottom) ──────────────────────────────
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-page, transparent);
+    margin-top: auto;
+  }
+
+  &__back-btn {
+    text-transform: none !important;
+    font-weight: 500 !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    border-radius: $border-radius-sm !important;
+    height: 44px;
+
+    &:hover { border-color: var(--text-secondary) !important; }
+  }
+
+  &__continue-btn {
+    flex: 1;
+    max-width: 280px;
+    height: 50px;
+    text-transform: none !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    border-radius: $border-radius-sm !important;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    color: var(--btn-primary-text) !important;
+  }
+}
+
+// ─── Job Row (collapsible) ───────────────────────────────────
+.sum-job-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: $border-radius;
+  overflow: hidden;
+  animation: sumSlideUp 0.3s ease;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+    gap: 12px;
+
+    &:hover {
+      background: color-mix(in srgb, var(--primary) 4%, transparent);
+    }
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    svg { color: var(--primary-light); flex-shrink: 0; }
+  }
+
+  &__id {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Roboto Mono', monospace;
+  }
+
+  &__badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary-light);
+
+    &--empty {
+      background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+      color: var(--text-muted);
+    }
+  }
+
+  &__stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  &__stat {
+    font-size: 12px;
+    color: var(--text-secondary);
+
+    strong {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-right: 2px;
+    }
+  }
+
+  &__toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px;
+
+    &:hover { color: var(--text-primary); }
+  }
+
+  &__body {
+    border-top: 1px solid var(--border-color);
+    animation: sumFadeIn 0.2s ease;
+  }
+
+  &__empty {
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+// ─── Bag table header ────────────────────────────────────────
+.sum-bag-header {
+  display: grid;
+  grid-template-columns: 130px 130px 1fr 70px 70px 85px 85px;
+  gap: 8px;
+  padding: 7px 16px;
+  background: var(--bg-surface, var(--bg-input));
+  border-bottom: 1px solid var(--border-color);
+
+  span {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  &__num {
+    text-align: right;
+
+    &.entered { color: var(--primary-light); }
+  }
+}
+
+// ─── Bag data row ─────────────────────────────────────────────
+.sum-bag-row {
+  display: grid;
+  grid-template-columns: 130px 130px 1fr 70px 70px 85px 85px;
+  gap: 8px;
+  padding: 8px 16px;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 40%, transparent);
+  transition: background 0.15s ease;
+  animation: sumFadeIn 0.2s ease;
+
+  &:last-child { border-bottom: none; }
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary) 3%, transparent);
+  }
+
+  &--total {
+    background: var(--bg-surface, var(--bg-input));
+    border-top: 1px solid var(--border-color);
+
+    &:hover { background: var(--bg-surface, var(--bg-input)); }
+
+    .sum-bag-row__rfbag {
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 700;
+    }
+  }
+
+  &__rfbag {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Roboto Mono', monospace;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__material {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__detail {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__num {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: right;
+    font-family: 'Roboto Mono', monospace;
+  }
+
+  &__entered {
+    color: var(--primary-light);
+
+    &--over {
+      color: var(--error);
+      background: color-mix(in srgb, var(--error) 8%, transparent);
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+  }
+}
+
+// ─── Keyframes ───────────────────────────────────────────────
+@keyframes sumSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sumFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

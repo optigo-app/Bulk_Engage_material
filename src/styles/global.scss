@@ -1,0 +1,180 @@
+@import 'variables';
+
+// ===== Theme 1: Dark Blue =====
+:root,
+[data-theme="theme1"] {
+  --primary: #1565c0;
+  --primary-light: #1e88e5;
+  --primary-dark: #0d47a1;
+  --secondary: #f57c00;
+  --success: #2e7d32;
+  --success-light: #4caf50;
+  --error: #d32f2f;
+  --warning: #ed6c02;
+
+  --bg-dark: #0f1724;
+  --bg-sidebar: #121d2f;
+  --bg-card: #1a2744;
+  --bg-card-hover: #213356;
+  --bg-input: #162036;
+  --bg-surface: #1e2d47;
+  --bg-content: #0f1724;
+
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border-color: #2a3f5f;
+  --border-light: #334766;
+
+  --header-bg: linear-gradient(135deg, #0d1b2a, #1b2838);
+  --header-text: #ffffff;
+  --header-border: rgba(255, 255, 255, 0.08);
+
+  --btn-primary-bg: #1565c0;
+  --btn-primary-hover: #1e88e5;
+  --btn-primary-text: #ffffff;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow-green: 0 0 20px rgba(76, 175, 80, 0.3);
+  --shadow-glow-blue: 0 0 20px rgba(21, 101, 192, 0.3);
+}
+
+// ===== Theme 2: Light Bright =====
+[data-theme="theme2"] {
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --secondary: #f59e0b;
+  --success: #16a34a;
+  --success-light: #22c55e;
+  --error: #ef4444;
+  --warning: #f97316;
+
+  --bg-dark: #f0f4f8;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-input: #f1f5f9;
+  --bg-surface: #f8fafc;
+  --bg-content: #f0f4f8;
+
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+
+  --border-color: #e2e8f0;
+  --border-light: #cbd5e1;
+
+  --header-bg: linear-gradient(135deg, #4f46e5, #7c3aed);
+  --header-text: #ffffff;
+  --header-border: rgba(255, 255, 255, 0.15);
+
+  --btn-primary-bg: #6366f1;
+  --btn-primary-hover: #818cf8;
+  --btn-primary-text: #ffffff;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-glow-green: 0 0 16px rgba(34, 197, 94, 0.2);
+  --shadow-glow-blue: 0 0 16px rgba(99, 102, 241, 0.2);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--border-light);
+  }
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+// Utility classes
+.page-enter {
+  animation: pageEnter 0.4s ease forwards;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes checkmark {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

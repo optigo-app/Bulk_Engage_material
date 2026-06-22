@@ -1,0 +1,738 @@
+@import "../../styles/variables";
+
+.bag-scanning {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 32px 0;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - #{$header-height} - 64px);
+
+  // ─── Header ───────────────────────────────────────
+  &__header {
+    margin-bottom: 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  &__step-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary-light);
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  &__desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  // ─── Layout ───────────────────────────────────────
+  &__layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  // ─── Left Panel ───────────────────────────────────
+  &__left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__jobs-context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius-sm;
+  }
+
+  &__jobs-context-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    flex-shrink: 0;
+  }
+
+  &__jobs-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__job-chip {
+    font-size: 12px;
+    font-weight: 600;
+    font-family: "Roboto Mono", monospace;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary-light);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  &__info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius;
+    padding: 20px;
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+  }
+
+  &__summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  &__summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 6px;
+    border-radius: $border-radius-sm;
+    border: 1px solid var(--border-color);
+
+    &--scanned {
+      background: color-mix(in srgb, var(--success) 8%, var(--bg-card));
+      border-color: color-mix(in srgb, var(--success) 30%, transparent);
+      .bag-scanning__summary-value {
+        color: var(--success-light);
+      }
+    }
+
+    &--required {
+      background: color-mix(in srgb, var(--primary) 8%, var(--bg-card));
+      border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+      .bag-scanning__summary-value {
+        color: var(--primary-light);
+      }
+    }
+
+    &--missing {
+      background: color-mix(
+        in srgb,
+        var(--warning, #ff9800) 8%,
+        var(--bg-card)
+      );
+      border-color: color-mix(
+        in srgb,
+        var(--warning, #ff9800) 30%,
+        transparent
+      );
+      .bag-scanning__summary-value {
+        color: var(--warning, #ff9800);
+      }
+    }
+
+    &--extra {
+      background: color-mix(in srgb, var(--error) 8%, var(--bg-card));
+      border-color: color-mix(in srgb, var(--error) 30%, transparent);
+      .bag-scanning__summary-value {
+        color: var(--error);
+      }
+    }
+  }
+
+  &__summary-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  &__summary-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  &__progress-bar {
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  &__progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  &__progress-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  &__scan-area {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
+
+  &__scan-frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  &__scan-animation {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__scan-box {
+    width: 48px;
+    height: 48px;
+    border-radius: $border-radius-sm;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-light);
+    z-index: 1;
+    position: relative;
+  }
+
+  &__scan-pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: $border-radius-sm;
+    border: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
+    animation: pulseScan 2s ease-out infinite;
+
+    &--delayed {
+      animation-delay: 0.8s;
+    }
+  }
+
+  &__input-wrapper {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+
+  &__input-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  &__input {
+    flex: 1;
+    height: 42px;
+    padding: 0 12px 0 36px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius-sm;
+    color: var(--text-primary);
+    font-size: 13px;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  &__scan-btn {
+    height: 42px;
+    min-width: 70px;
+    text-transform: none !important;
+    font-weight: 600 !important;
+    border-radius: $border-radius-sm !important;
+    background: var(--btn-primary-bg) !important;
+    color: var(--btn-primary-text) !important;
+    flex-shrink: 0;
+  }
+
+  &__no-bags {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px;
+    background: color-mix(in srgb, var(--warning, #ff9800) 8%, var(--bg-card));
+    border: 1px solid
+      color-mix(in srgb, var(--warning, #ff9800) 30%, transparent);
+    border-radius: $border-radius;
+    color: var(--warning, #ff9800);
+    text-align: center;
+
+    p {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    span {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+  }
+
+  // ─── Right Panel ──────────────────────────────────
+  &__right {
+    display: flex;
+    gap: 20px;
+    min-height: 0;
+  }
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0; // allows children to scroll
+    width: 50%;
+
+    &--others {
+      width: 50%;
+    }
+  }
+
+  &__bags-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    &--others h3 {
+      color: var(--warning, #ff9800);
+    }
+  }
+
+  &__bags-count {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary-light);
+
+    &--others {
+      background: color-mix(in srgb, var(--warning, #ff9800) 15%, transparent);
+      color: var(--warning, #ff9800);
+    }
+  }
+
+  // ── Scrollable list — KEY FIX ──────────────────────
+  &__bags-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    // Fill the right panel height — adjust this value to fit your layout
+    max-height: calc(100vh - #{$header-height} - 350px);
+    padding-right: 4px;
+    padding-bottom: 8px;
+
+    // Thin custom scrollbar
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+      &:hover {
+        background: var(--text-muted);
+      }
+    }
+  }
+
+  &__empty-list {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    border: 2px dashed var(--border-color);
+    border-radius: $border-radius;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  // ─── Bag Card ─────────────────────────────────────
+  &__bag-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius-sm;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+
+    // ── FIXED: start fully visible, just slide up slightly ──
+    opacity: 1;
+    transform: translateY(0);
+    animation: bagSlideIn 0.2s ease forwards;
+
+    // ── Scanned state — immediate, no delay ──
+    &--scanned {
+      border-color: color-mix(in srgb, var(--success) 50%, transparent);
+      background: color-mix(in srgb, var(--success) 6%, var(--bg-card));
+      // Transition background smoothly when state changes
+      transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+    }
+
+    // ── Just scanned — bright flash then settles ──
+    &--just-scanned {
+      // Override animation with flash
+      animation: scanFlashGreen 0.5s ease forwards !important;
+      // Keep border highlight
+      border-color: color-mix(
+        in srgb,
+        var(--success) 70%,
+        transparent
+      ) !important;
+    }
+
+    &--other {
+      border-color: color-mix(in srgb, #ff9800 40%, transparent);
+      background: color-mix(in srgb, #ff9800 6%, var(--bg-card));
+      transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+    }
+
+    &--just-scanned-other {
+      animation: scanFlashRed 0.5s ease forwards !important;
+      border-color: color-mix(
+        in srgb,
+        var(--error) 70%,
+        transparent
+      ) !important;
+    }
+  }
+
+  &__bag-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: $border-radius-sm;
+    background: color-mix(
+      in srgb,
+      var(--bag-color, var(--primary)) 15%,
+      transparent
+    );
+    border: 1px solid
+      color-mix(in srgb, var(--bag-color, var(--primary)) 30%, transparent);
+    color: var(--bag-color, var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &--other {
+      background: color-mix(in srgb,#ff9800 15%, transparent);
+      border-color: color-mix(in srgb, #ff9800 30%, transparent);
+      color: #ff9800;
+    }
+  }
+
+  &__bag-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__bag-id {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: "Roboto Mono", monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__bag-type {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__bag-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__bag-status {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  &__bag-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+
+    &--scanned {
+      background: color-mix(in srgb, var(--success) 15%, transparent);
+      color: var(--success-light);
+    }
+
+    &--pending {
+      background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+      color: var(--text-muted);
+    }
+
+    &--extra {
+      background: color-mix(in srgb, #ff9800 15%, transparent);
+      color: #ff9800;
+    }
+  }
+
+  &__bag-inputs {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--success) 20%, transparent);
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  &__bag-field-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+
+    label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+  }
+
+  &__bag-field {
+    height: 34px;
+    padding: 0 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius-sm;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    width: 100%;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+  }
+
+  // ─── Actions ──────────────────────────────────────
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 20px;
+    flex-shrink: 0;
+  }
+
+  &__back-btn {
+    text-transform: none !important;
+    font-weight: 500 !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    border-radius: $border-radius-sm !important;
+    height: 44px;
+
+    &:hover {
+      border-color: var(--text-secondary) !important;
+    }
+  }
+
+  &__continue-btn {
+    flex: 1;
+    max-width: 280px;
+    height: 50px;
+    text-transform: none !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    border-radius: $border-radius-sm !important;
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-light)
+    ) !important;
+    color: var(--btn-primary-text) !important;
+
+    &:disabled {
+      opacity: 0.5 !important;
+    }
+  }
+
+  &__filter-pills {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+&__filter-pill {
+  padding: 5px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary-light);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    color: var(--primary-light);
+  }
+}
+}
+
+// ─── Keyframes ────────────────────────────────────────────────
+
+// Cards enter fully visible — just a tiny upward nudge
+@keyframes bagSlideIn {
+  from {
+    opacity: 0.7;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Scan flash — bright green burst, then settles to scanned state
+@keyframes scanFlashGreen {
+  0% {
+    background: color-mix(in srgb, var(--success) 35%, var(--bg-card));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 40%, transparent);
+  }
+  60% {
+    background: color-mix(in srgb, var(--success) 20%, var(--bg-card));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 20%, transparent);
+  }
+  100% {
+    background: color-mix(in srgb, var(--success) 6%, var(--bg-card));
+    box-shadow: none;
+  }
+}
+
+// Scan flash — red burst for extra/other bags
+@keyframes scanFlashRed {
+  0% {
+    background: color-mix(in srgb, var(--error) 35%, var(--bg-card));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 40%, transparent);
+  }
+  60% {
+    background: color-mix(in srgb, var(--error) 20%, var(--bg-card));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--error) 20%, transparent);
+  }
+  100% {
+    background: color-mix(in srgb, var(--error) 6%, var(--bg-card));
+    box-shadow: none;
+  }
+}
+
+@keyframes pulseScan {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}

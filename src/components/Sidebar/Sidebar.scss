@@ -1,0 +1,225 @@
+@import '../../styles/variables';
+
+.sidebar {
+  width: $sidebar-width;
+  min-width: $sidebar-width;
+  height: 100%;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: background 0.3s ease, border-color 0.3s ease;
+
+  &__header {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__logo-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+
+  &__logo-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  &__profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    animation: fadeIn 0.3s ease;
+  }
+
+  &__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+    border: 2px solid var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-light);
+  }
+
+  &__profile-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__code {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'Roboto Mono', monospace;
+  }
+
+  &__details {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    min-height: 0;
+  }
+
+  &__detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border-radius: 6px;
+
+    svg {
+      color: var(--primary-light);
+      flex-shrink: 0;
+    }
+  }
+
+  &__nav {
+    flex: 1;
+    padding: 12px 8px;
+  }
+
+  &__nav-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    padding: 0 12px 8px;
+  }
+
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    position: relative;
+    cursor: default;
+    transition: all 0.2s ease;
+
+    &--active {
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+
+      .sidebar__step-indicator {
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 40%, transparent);
+      }
+
+      .sidebar__step-label {
+        color: var(--text-primary);
+        font-weight: 500;
+      }
+    }
+
+    &--completed {
+      .sidebar__step-indicator {
+        background: color-mix(in srgb, var(--success) 20%, transparent);
+        color: var(--success-light);
+        border-color: var(--success-light);
+      }
+
+      .sidebar__step-label {
+        color: var(--text-secondary);
+      }
+    }
+
+    &--disabled {
+      opacity: 0.4;
+
+      .sidebar__step-label {
+        color: var(--text-muted);
+      }
+    }
+  }
+
+  &__step-indicator {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+
+  &__step-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__step-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__step-active-bar {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--primary);
+    border-radius: 0 3px 3px 0;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,46 @@
+// Colors
+$primary: #1565c0;
+$primary-light: #1e88e5;
+$primary-dark: #0d47a1;
+$secondary: #f57c00;
+$success: #2e7d32;
+$success-light: #4caf50;
+$error: #d32f2f;
+$warning: #ed6c02;
+$info: #0288d1;
+
+$bg-dark: #0f1724;
+$bg-sidebar: #121d2f;
+$bg-card: #1a2744;
+$bg-card-hover: #213356;
+$bg-input: #162036;
+$bg-surface: #1e2d47;
+
+$text-primary: #ffffff;
+$text-secondary: #94a3b8;
+$text-muted: #64748b;
+
+$border-color: #2a3f5f;
+$border-light: #334766;
+
+$green-glow: rgba(76, 175, 80, 0.4);
+$blue-glow: rgba(21, 101, 192, 0.4);
+
+// Sizing
+$sidebar-width: 280px;
+$header-height: 56px;
+$border-radius: 12px;
+$border-radius-sm: 8px;
+$border-radius-xs: 6px;
+
+// Transitions
+$transition-fast: 0.2s ease;
+$transition-normal: 0.3s ease;
+$transition-slow: 0.5s ease;
+
+// Shadows
+$shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+$shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+$shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+$shadow-glow-green: 0 0 20px rgba(76, 175, 80, 0.3);
+$shadow-glow-blue: 0 0 20px rgba(21, 101, 192, 0.3);
