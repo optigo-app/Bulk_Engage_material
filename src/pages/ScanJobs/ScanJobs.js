@@ -4,27 +4,13 @@ import { useEngage } from '../../context/EngageContext';
 import { ScanLine, X, ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertTriangle, XCircle, PlusCircle } from 'lucide-react';
 import Button from '@mui/material/Button';
 import './ScanJobs.scss';
+import { getMaster } from '../../Utils/masterStore';
 
 let jobCounter = 1;
 
-const getJobList = () => {
-  try {
-    const raw = sessionStorage.getItem('allJobListData');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
+const getJobList = () => getMaster('allJobListData', []);
 
-// ── NEW: read allJobMaterialData from sessionStorage ──
-const getJobMaterialData = () => {
-  try {
-    const raw = sessionStorage.getItem('allJobMaterialData');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
+const getJobMaterialData = () => getMaster('allJobMaterialData', []);
 
 const ScanJobs = () => {
   const navigate = useNavigate();
@@ -32,27 +18,108 @@ const ScanJobs = () => {
   const [scanValue, setScanValue] = useState('');
   const [loaderProgress, setLoaderProgress] = useState(0);
   const [phase, setPhase] = useState(null);
-  const [verificationResult, setVerificationResult] = useState({
-    validJobs: [],
-    invalidJobs: [],
-  });
+  const [verificationResult, setVerificationResult] = useState({ validJobs: [], invalidJobs: [] });
 
   const allJobDataRef = useRef([]);
   const validSerialNosRef = useRef(new Set());
+  const inputRef = useRef(null);
+  const gridRef = useRef(null);
+  const bufferRef = useRef('');
+  const bufferTimerRef = useRef(null);
+  // track phase in ref so global listener always sees latest value
+  const phaseRef = useRef(phase);
+
+  // Add refs for Back and Continue buttons
+  const backBtnRef = useRef(null);
+  const continueBtnRef = useRef(null);
+
+  // ── Tab trap effect ──
+  useEffect(() => {
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+
+      // Don't trap when overlay is showing
+      const p = phaseRef.current;
+      if (p === 'verifying' || p === 'result') return;
+
+      e.preventDefault(); // prevent ALL default tab behaviour (browser, sidebar, etc.)
+
+      const focusOrder = [
+        inputRef.current,
+        backBtnRef.current,
+        continueBtnRef.current,
+      ].filter(Boolean); // filter out null if button not rendered
+
+      const active = document.activeElement;
+      const currentIdx = focusOrder.indexOf(active);
+
+      if (e.shiftKey) {
+        // Shift+Tab → go backwards
+        const prevIdx = currentIdx <= 0 ? focusOrder.length - 1 : currentIdx - 1;
+        focusOrder[prevIdx]?.focus();
+      } else {
+        // Tab → go forwards
+        const nextIdx = currentIdx >= focusOrder.length - 1 ? 0 : currentIdx + 1;
+        focusOrder[nextIdx]?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
+  }, []); // eslint-disable-line
+
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   useEffect(() => {
     actions.setStep(4);
     if (!state.processSubType) navigate('/select-process');
-
     const data = getJobList();
     allJobDataRef.current = data;
     validSerialNosRef.current = new Set(data.map((d) => d.serialjobno));
-
     inputRef.current?.focus();
-  }, []);
+  }, []); // eslint-disable-line
 
-  const inputRef = useRef(null);
-  const gridRef = useRef(null);
+  // ── Global barcode scanner listener ──
+  useEffect(() => {
+    const handleKey = (e) => {
+      // Block if an overlay is active
+      const p = phaseRef.current;
+      if (p === 'verifying' || p === 'result') return;
+
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'Enter') {
+        const val = bufferRef.current.trim();
+        bufferRef.current = '';
+        clearTimeout(bufferTimerRef.current);
+        if (val) {
+          setScanValue(val);
+          triggerScan(val);
+        }
+        return;
+      }
+
+      if (e.key.length === 1) {
+        bufferRef.current += e.key;
+        clearTimeout(bufferTimerRef.current);
+        bufferTimerRef.current = setTimeout(() => {
+          const val = bufferRef.current.trim();
+          bufferRef.current = '';
+          if (val) {
+            setScanValue(val);
+            triggerScan(val);
+          }
+        }, 300);
+      }
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      clearTimeout(bufferTimerRef.current);
+    };
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     if (gridRef.current) {
@@ -60,8 +127,7 @@ const ScanJobs = () => {
     }
   }, [state.scannedJobs.length]);
 
-  const handleScan = () => {
-    const val = scanValue.trim();
+  const triggerScan = (val) => {
     if (!val) return;
 
     if (state.scannedJobs.find((j) => j.serialjobno === val)) {
@@ -80,14 +146,15 @@ const ScanJobs = () => {
       scannedAt: new Date().toLocaleTimeString(),
       isValid: !!matchedJob,
       serialjobno: matchedJob?.serialjobno ?? val,
-      design:      matchedJob?.design      ?? null,
-      category:    matchedJob?.category    ?? null,
-      ccode:       matchedJob?.ccode       ?? null,
-      cname:       matchedJob?.cname       ?? null,
-      color:       matchedJob?.color       ?? null,
-      metal:       matchedJob?.metal       ?? null,
-      status:      matchedJob?.status      ?? null,
-      location:    matchedJob?.location    ?? null,
+      design: matchedJob?.design ?? null,
+      category: matchedJob?.category ?? null,
+      ccode: matchedJob?.ccode ?? null,
+      cname: matchedJob?.cname ?? null,
+      color: matchedJob?.color ?? null,
+      metal: matchedJob?.metal ?? null,
+      status: matchedJob?.status ?? null,
+      location: matchedJob?.location ?? null,
+      jid: matchedJob?.jid ?? null,
     };
 
     jobCounter++;
@@ -96,13 +163,18 @@ const ScanJobs = () => {
     inputRef.current?.focus();
   };
 
+  // manual input scan
+  const handleScan = () => {
+    const val = scanValue.trim();
+    if (!val) return;
+    triggerScan(val);
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleScan();
   };
 
-  const handleRemoveJob = (id) => {
-    actions.removeScannedJob(id);
-  };
+  const handleRemoveJob = (id) => actions.removeScannedJob(id);
 
   const handleContinue = () => {
     if (state.scannedJobs.length === 0) return;
@@ -121,49 +193,49 @@ const ScanJobs = () => {
   };
 
   const runValidation = () => {
-    const validJobs   = state.scannedJobs.filter((j) => validSerialNosRef.current.has(j.serialjobno));
+    const validJobs = state.scannedJobs.filter((j) => validSerialNosRef.current.has(j.serialjobno));
     const invalidJobs = state.scannedJobs.filter((j) => !validSerialNosRef.current.has(j.serialjobno));
     setVerificationResult({ validJobs, invalidJobs });
     setPhase('result');
   };
 
-  // ── UPDATED: save to sessionStorage then navigate ──
-  const handleGoToNext = () => {
-    // 1. Save scanned jobs list
-    sessionStorage.setItem('scannedJobListData', JSON.stringify(state.scannedJobs));
-
-    // 2. Match scanned serial job nos against allJobMaterialData.SerialJobNo
-    const allMaterialData = getJobMaterialData();
-    const scannedSerialNos = new Set(
-      state.scannedJobs.map((j) => j.serialjobno?.toLowerCase())
-    );
-    const matchedMaterials = allMaterialData.filter((m) =>
-      scannedSerialNos.has(m.SerialJobNo?.toLowerCase())
-    );
-    sessionStorage.setItem('scannedJobMaterialData', JSON.stringify(matchedMaterials));
-
-    navigate('/bag-scanning');
-  };
-
-  // ── NEW: "Add More Jobs" — go back to scanning mode from all-valid overlay ──
   const handleAddMoreJobs = () => {
     setPhase(null);
     setVerificationResult({ validJobs: [], invalidJobs: [] });
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const handleProceedAnyway  = () => navigate('/bag-scanning');
-  const handleGoBackAndFix   = () => {
+  const handleProceedAnyway = () => {
+    verificationResult.invalidJobs.forEach((j) => actions.removeScannedJob(j.id));
+    finalizeAndNavigate(verificationResult.validJobs);
+  };
+
+  const handleGoToNext = () => {
+    finalizeAndNavigate(state.scannedJobs);
+  };
+
+  const finalizeAndNavigate = (jobs) => {
+    sessionStorage.setItem('scannedJobListData', JSON.stringify(jobs));
+    const allMaterialData = getJobMaterialData();
+    const scannedSerialNos = new Set(jobs.map((j) => j.serialjobno?.toLowerCase()));
+    const matchedMaterials = allMaterialData.filter((m) =>
+      scannedSerialNos.has(m.SerialJobNo?.toLowerCase())
+    );
+    sessionStorage.setItem('scannedJobMaterialData', JSON.stringify(matchedMaterials));
+    navigate('/bag-scanning');
+  };
+
+
+  const handleGoBackAndFix = () => {
     setPhase('fixing');
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const remainingInvalidCount =
-    phase === 'fixing'
-      ? state.scannedJobs.filter((j) => !validSerialNosRef.current.has(j.serialjobno)).length
-      : 0;
+  const remainingInvalidCount = phase === 'fixing'
+    ? state.scannedJobs.filter((j) => !validSerialNosRef.current.has(j.serialjobno)).length
+    : 0;
 
-  const allValid   = phase === 'result' && verificationResult.invalidJobs.length === 0;
+  const allValid = phase === 'result' && verificationResult.invalidJobs.length === 0;
   const hasInvalid = phase === 'result' && verificationResult.invalidJobs.length > 0;
 
   const getCardClass = (job) => {
@@ -191,10 +263,10 @@ const ScanJobs = () => {
         <div className="scan-jobs__scanner-visual">
           <div className="scan-jobs__scanner-frame">
             <div className="scan-jobs__barcode-lines">
-              <span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span>
+              <span /><span /><span /><span />
+              <span /><span /><span /><span />
             </div>
-            <div className="scan-jobs__scan-laser"></div>
+            <div className="scan-jobs__scan-laser" />
           </div>
         </div>
         <div className="scan-jobs__scanner-input">
@@ -226,14 +298,13 @@ const ScanJobs = () => {
         </div>
       </div>
 
-      {/* ─── Fix Mode Banner ─── */}
+      {/* ─── Fix Mode Banner ─── 
       {phase === 'fixing' && (
         <div className="scan-jobs__fix-banner">
           <div className="scan-jobs__fix-banner-left">
             <AlertTriangle size={16} />
             <span>
-              <strong>{remainingInvalidCount} invalid</strong> job
-              {remainingInvalidCount !== 1 ? 's' : ''} found.
+              <strong>{remainingInvalidCount} invalid</strong> job{remainingInvalidCount !== 1 ? 's' : ''} found.
               Click the <X size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> on each red card to remove it.
             </span>
           </div>
@@ -246,7 +317,7 @@ const ScanJobs = () => {
             </span>
           </div>
         </div>
-      )}
+      )}*/}
 
       {/* ─── Section Title ─── */}
       <div className="scan-jobs__section-title">
@@ -291,7 +362,9 @@ const ScanJobs = () => {
                     <span className="scan-jobs__job-number">{job.serialjobno}</span>
                   </div>
                   {phase === null && (
-                    <button className="scan-jobs__job-remove" onClick={() => handleRemoveJob(job.id)}>
+                    <button className="scan-jobs__job-remove" onClick={() => handleRemoveJob(job.id)}
+                      tabIndex={-1}
+                    >
                       <X size={14} />
                     </button>
                   )}
@@ -311,7 +384,7 @@ const ScanJobs = () => {
         </div>
       </div>
 
-      {/* ─── Bottom Actions: scanning (null) ─── */}
+      {/* ─── Bottom Actions: scanning ─── */}
       {phase === null && (
         <div className="scan-jobs__actions">
           <Button
@@ -319,6 +392,7 @@ const ScanJobs = () => {
             onClick={() => navigate('/select-process')}
             startIcon={<ArrowLeft size={18} />}
             className="scan-jobs__back-btn"
+            ref={backBtnRef}
           >
             Back
           </Button>
@@ -330,6 +404,7 @@ const ScanJobs = () => {
             disabled={state.scannedJobs.length === 0}
             endIcon={<ArrowRight size={20} />}
             className="scan-jobs__continue-btn"
+            ref={continueBtnRef}
           >
             Continue
           </Button>
@@ -339,26 +414,15 @@ const ScanJobs = () => {
       {/* ─── Bottom Actions: fixing ─── */}
       {phase === 'fixing' && (
         <div className="scan-jobs__actions">
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setPhase(null);
-              setVerificationResult({ validJobs: [], invalidJobs: [] });
-            }}
-            startIcon={<ArrowLeft size={18} />}
-            className="scan-jobs__back-btn"
-          >
+          <Button variant="outlined"
+            onClick={() => { setPhase(null); setVerificationResult({ validJobs: [], invalidJobs: [] }); }}
+            startIcon={<ArrowLeft size={18} />} className="scan-jobs__back-btn">
             Back
           </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            size="large"
+          <Button variant="contained" color="primary" size="large"
             onClick={handleContinue}
             disabled={state.scannedJobs.length === 0 || remainingInvalidCount > 0}
-            endIcon={<ArrowRight size={20} />}
-            className="scan-jobs__continue-btn"
-          >
+            endIcon={<ArrowRight size={20} />} className="scan-jobs__continue-btn">
             {remainingInvalidCount > 0
               ? `Remove ${remainingInvalidCount} invalid job${remainingInvalidCount !== 1 ? 's' : ''} first`
               : 'Continue'}
@@ -373,18 +437,12 @@ const ScanJobs = () => {
             <div className="scan-jobs__loader-circle">
               <svg viewBox="0 0 100 100">
                 <circle className="scan-jobs__loader-bg" cx="50" cy="50" r="45" />
-                <circle
-                  className="scan-jobs__loader-progress"
-                  cx="50" cy="50" r="45"
-                  style={{ strokeDashoffset: 283 - (283 * loaderProgress) / 100 }}
-                />
+                <circle className="scan-jobs__loader-progress" cx="50" cy="50" r="45"
+                  style={{ strokeDashoffset: 283 - (283 * loaderProgress) / 100 }} />
               </svg>
               <div className="scan-jobs__loader-text">
                 {loaderProgress < 100 ? (
-                  <>
-                    <Loader2 size={20} className="scan-jobs__spinner" />
-                    <span>{loaderProgress}%</span>
-                  </>
+                  <><Loader2 size={20} className="scan-jobs__spinner" /><span>{loaderProgress}%</span></>
                 ) : (
                   <CheckCircle2 size={28} className="scan-jobs__check" />
                 )}
@@ -397,7 +455,7 @@ const ScanJobs = () => {
         </div>
       )}
 
-      {/* ══ OVERLAY: All Valid ✓  ── UPDATED with 2 buttons ══ */}
+      {/* ══ OVERLAY: All Valid ══ */}
       {phase === 'result' && allValid && (
         <div className="scan-jobs__overlay scan-jobs__overlay--result">
           <div className="scan-jobs__result-card scan-jobs__result-card--success">
@@ -407,41 +465,26 @@ const ScanJobs = () => {
             <div className="scan-jobs__result-content">
               <h2 className="scan-jobs__result-title">All Jobs Verified!</h2>
               <p className="scan-jobs__result-sub">
-                {verificationResult.validJobs.length} job
-                {verificationResult.validJobs.length !== 1 ? 's' : ''} are ready for bag scanning.
+                {verificationResult.validJobs.length} job{verificationResult.validJobs.length !== 1 ? 's' : ''} are ready for bag scanning.
               </p>
               <div className="scan-jobs__result-list">
                 {verificationResult.validJobs.map((j) => (
                   <div key={j.id} className="scan-jobs__result-row scan-jobs__result-row--valid">
                     <CheckCircle2 size={14} />
                     <span className="scan-jobs__result-row-id">{j.serialjobno}</span>
-                    {j.category && <span className="scan-jobs__result-row-meta">{j.category}</span>}
-                    {j.metal    && <span className="scan-jobs__result-row-meta">{j.metal}</span>}
                     <span className="scan-jobs__result-row-badge scan-jobs__result-row-badge--valid">Valid</span>
                   </div>
                 ))}
               </div>
-
-              {/* ── 2 buttons: Add More Jobs  |  Continue to Bag Scanning ── */}
               <div className="scan-jobs__result-actions scan-jobs__result-actions--split">
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  size="large"
-                  onClick={handleAddMoreJobs}
-                  startIcon={<PlusCircle size={18} />}
-                  className="scan-jobs__result-btn--outline"
-                >
+                <Button variant="outlined" color="primary" size="large"
+                  onClick={handleAddMoreJobs} startIcon={<PlusCircle size={18} />}
+                  className="scan-jobs__result-btn--outline">
                   Add More Jobs
                 </Button>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="large"
-                  onClick={handleGoToNext}
-                  endIcon={<ArrowRight size={18} />}
-                  className="scan-jobs__result-btn"
-                >
+                <Button variant="contained" color="success" size="large"
+                  onClick={handleGoToNext} endIcon={<ArrowRight size={18} />}
+                  className="scan-jobs__result-btn">
                   Continue to Bag Scanning
                 </Button>
               </div>
@@ -450,7 +493,7 @@ const ScanJobs = () => {
         </div>
       )}
 
-      {/* ══ OVERLAY: Some Invalid ✗ ══ */}
+      {/* ══ OVERLAY: Some Invalid ══ */}
       {phase === 'result' && hasInvalid && (
         <div className="scan-jobs__overlay scan-jobs__overlay--result">
           <div className="scan-jobs__result-card scan-jobs__result-card--warning">
@@ -460,8 +503,7 @@ const ScanJobs = () => {
             <div className="scan-jobs__result-content">
               <h2 className="scan-jobs__result-title">Some Jobs Are Invalid</h2>
               <p className="scan-jobs__result-sub">
-                <strong>{verificationResult.invalidJobs.length}</strong> job
-                {verificationResult.invalidJobs.length !== 1 ? 's' : ''} were not found in the system.
+                <strong>{verificationResult.invalidJobs.length}</strong> job{verificationResult.invalidJobs.length !== 1 ? 's' : ''} were not found in the system.
               </p>
               <div className="scan-jobs__result-list">
                 {verificationResult.validJobs.map((j) => (
@@ -481,24 +523,14 @@ const ScanJobs = () => {
                 ))}
               </div>
               <div className="scan-jobs__result-actions scan-jobs__result-actions--split">
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="large"
-                  onClick={handleGoBackAndFix}
-                  startIcon={<ArrowLeft size={18} />}
-                  className="scan-jobs__result-btn--outline"
-                >
+                <Button variant="outlined" color="error" size="large"
+                  onClick={handleGoBackAndFix} startIcon={<ArrowLeft size={18} />}
+                  className="scan-jobs__result-btn--outline">
                   Go Back &amp; Fix
                 </Button>
-                <Button
-                  variant="contained"
-                  color="warning"
-                  size="large"
-                  onClick={handleProceedAnyway}
-                  endIcon={<ArrowRight size={18} />}
-                  className="scan-jobs__result-btn"
-                >
+                <Button variant="contained" color="warning" size="large"
+                  onClick={handleProceedAnyway} endIcon={<ArrowRight size={18} />}
+                  className="scan-jobs__result-btn">
                   Yes, Continue Anyway
                 </Button>
               </div>

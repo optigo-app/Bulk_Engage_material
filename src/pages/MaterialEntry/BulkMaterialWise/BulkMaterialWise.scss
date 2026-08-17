@@ -338,6 +338,78 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   opacity: 0.75;
   padding: 0 2px;
   white-space: nowrap;
+
+  &--error {
+    color: #ef4444;
+    opacity: 1;
+    font-weight: 600;
+  }
+}
+
+.bmw__inp--error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 15%, transparent) !important;
+}
+
+.bmw__exhausted-cell {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #ef4444;
+  padding: 3px 6px;
+  background: color-mix(in srgb, #ef4444 8%, transparent);
+  border: 1px solid color-mix(in srgb, #ef4444 25%, transparent);
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.bmw__engaged-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.bmw__engaged-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary, #1976d2);
+  padding: 2px 4px;
+  background: color-mix(in srgb, var(--primary, #1976d2) 8%, transparent);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.bmw__add-other-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--primary, #1565c0);
+  background: color-mix(in srgb, var(--primary, #1565c0) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #1565c0) 35%, transparent);
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { background: color-mix(in srgb, var(--primary, #1565c0) 18%, transparent); }
+}
+
+.bmw__return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #ff9800;
+  background: color-mix(in srgb, #ff9800 10%, transparent);
+  border: 1px solid color-mix(in srgb, #ff9800 35%, transparent);
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { background: color-mix(in srgb, #ff9800 18%, transparent); }
 }
 
 // ── Summary sidebar (30%) ─────────────────────────────────────────────────────

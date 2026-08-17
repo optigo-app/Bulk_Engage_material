@@ -984,3 +984,11 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+
+@media (max-width: 1800px) {
+ .material-entry{
+  height: calc(100vh - 0px - 40px) !important;
+ }
+}
+

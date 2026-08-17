@@ -4,6 +4,13 @@ import { useEngage } from '../../context/EngageContext';
 import { ScanLine, User, BadgeCheck, ArrowRight } from 'lucide-react';
 import Button from '@mui/material/Button';
 import './ScanEmployee.scss';
+import { useTheme } from '../../context/ThemeContext';
+import { Palette, Sun, Moon, RefreshCw } from 'lucide-react';
+import { refreshSessionData } from '../../Utils/refreshSessionData';
+import { getMaster, removeMaster } from '../../Utils/masterStore';
+import { useRecoilState } from 'recoil';
+import LoadingBackdrop from '../../Utils/LoadingBackdrop';
+import { isLoadingAtom } from '../../recoil/atom';
 
 const ScanEmployee = () => {
   const navigate = useNavigate();
@@ -11,18 +18,66 @@ const ScanEmployee = () => {
   const [scanValue, setScanValue] = useState('');
   const [error, setError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [foundEmployee, setFoundEmployee] = useState(null); // ← local preview only
   const inputRef = useRef(null);
-  const allemployeeLockerRights = JSON.parse(sessionStorage.getItem('allEmployeeLockerData'));
+  const bufferRef = useRef('');
+  const bufferTimerRef = useRef(null);
+  const { currentTheme, toggleSelector } = useTheme();
+  const [, setIsLoading] = useRecoilState(isLoadingAtom);
+  const [foundEmployee, setFoundEmployee] = useState(state.employee || null);
+
 
   useEffect(() => {
     actions.setStep(1);
-    inputRef.current?.focus();
+    // if an employee is already selected (e.g. came back via "Back"), prefill it
+    if (state.employee) {
+      setFoundEmployee(state.employee);
+      setScanValue(state.employee.bcode || '');
+    } else {
+      inputRef.current?.focus();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleScan = () => {
-    if (!scanValue.trim()) {
+  // ── Global scanner listener (fires when no input is focused) ──
+  useEffect(() => {
+    const handleKey = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'Enter') {
+        const val = bufferRef.current.trim();
+        bufferRef.current = '';
+        clearTimeout(bufferTimerRef.current);
+        if (val) {
+          setScanValue(val);
+          triggerScan(val);
+        }
+        return;
+      }
+
+      if (e.key.length === 1) {
+        bufferRef.current += e.key;
+        clearTimeout(bufferTimerRef.current);
+        bufferTimerRef.current = setTimeout(() => {
+          const val = bufferRef.current.trim();
+          bufferRef.current = '';
+          if (val) {
+            setScanValue(val);
+            triggerScan(val);
+          }
+        }, 300);
+      }
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      clearTimeout(bufferTimerRef.current);
+    };
+  }, []); // eslint-disable-line
+
+  const triggerScan = (val) => {
+    if (!val?.trim()) {
       setError('Please scan or enter employee code');
       return;
     }
@@ -31,55 +86,39 @@ const ScanEmployee = () => {
     setFoundEmployee(null);
 
     setTimeout(() => {
-      // Read allEmployeeData from sessionStorage
-      let allEmployees = [];
-      try {
-        const raw = sessionStorage.getItem('allEmployeeData');
-        allEmployees = raw ? JSON.parse(raw) : [];
-      } catch {
-        allEmployees = [];
-      }
+      const allEmployees = getMaster('allEmployeeData', []);
 
-      // Match by bcode (barcode scan) — case-insensitive
       const emp = allEmployees.find(
-        (e) => e.bcode?.toLowerCase() === scanValue.trim().toLowerCase()
+        (e) => e.bcode?.toLowerCase() === val.trim().toLowerCase()
       );
 
       if (emp) {
-        // Only store in local state — NOT in context yet
         setFoundEmployee(emp);
       } else {
         setError('Employee not found. Please try again.');
       }
-
       setIsScanning(false);
-    }, 800);
+    }, 200);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleScan();
-  };
+  // ── Manual input handlers ──
+  const handleScan = () => triggerScan(scanValue);
+  const handleKeyDown = (e) => { if (e.key === 'Enter') handleScan(); };
 
   const handleContinue = () => {
     if (!foundEmployee) return;
-
-    // Commit employee to context
     actions.setEmployee(foundEmployee);
 
-    // Check if this employee already has a locker assigned
     let empLocker = null;
     try {
-      const raw = sessionStorage.getItem('allEmployeeLockerData');
-      const empLockers = raw ? JSON.parse(raw) : [];
+      const empLockers = getMaster('allEmployeeLockerData', []);
       empLocker = empLockers.find(
         (el) =>
           el.bcode === foundEmployee.bcode ||
           el.empcode === foundEmployee.code ||
           el.code === foundEmployee.code
       );
-    } catch {
-      empLocker = null;
-    }
+    } catch { empLocker = null; }
 
     if (empLocker) {
       const lockerData = {
@@ -95,8 +134,32 @@ const ScanEmployee = () => {
     }
   };
 
+  const handleRefreshData = async () => {
+    ['scannedBagData', 'scannedJobMaterialData', 'scannedJobListData'].forEach(
+      (k) => sessionStorage.removeItem(k),
+    );
+    [
+      'allLockerData', 'allJobMaterialData', 'allJobListData', 'allEngagedMaterial',
+      'allEmployeeLockerData', 'allEmployeeData', 'allBagListData',
+    ].forEach((k) => removeMaster(k));
+    await refreshSessionData(setIsLoading);
+  };
+
   return (
     <div className="scan-employee page-enter">
+      <Button className="scan-employee__theme-btn homebtn1" onClick={toggleSelector} title="Switch Theme"
+        style={{ position: 'absolute', top: '15px', right: '-60%', backgroundColor: '#6366f1', zIndex: 999999 }}>
+        {currentTheme === 'theme1' ? <Moon size={16} /> : <Sun size={16} />}
+        <span>{currentTheme === 'theme1' ? 'Dark' : currentTheme === 'system' ? 'System' : 'Light'}</span>
+        <Palette size={14} />
+      </Button>
+
+      <Button className="scan-employee__theme-btn homebtn2" onClick={handleRefreshData} title="Refresh Data"
+        style={{ position: 'absolute', top: '15px', right: '-45%', backgroundColor: '#6366f1', zIndex: 999999 }}>
+        <RefreshCw size={16} />
+        <span>Refresh</span>
+      </Button>
+
       <div className="scan-employee__header">
         <div className="scan-employee__step-badge">Step 1</div>
         <h1 className="scan-employee__title">Scan Employee</h1>
@@ -126,7 +189,7 @@ const ScanEmployee = () => {
               onChange={(e) => {
                 setScanValue(e.target.value);
                 setError('');
-                setFoundEmployee(null); // clear preview on new input
+                setFoundEmployee(null);
               }}
               onKeyDown={handleKeyDown}
               autoFocus
@@ -145,7 +208,6 @@ const ScanEmployee = () => {
         </div>
       </div>
 
-      {/* Show result from LOCAL foundEmployee state — not from context */}
       {foundEmployee && (
         <div className="scan-employee__result">
           <div className="scan-employee__result-card">

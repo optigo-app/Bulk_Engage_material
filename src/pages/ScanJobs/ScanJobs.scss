@@ -1,4 +1,4 @@
-@import '../../styles/variables';
+@import "../../styles/variables";
 
 .scan-jobs {
   max-width: 960px;
@@ -81,14 +81,38 @@
       border-radius: 2px;
       animation: barcodeGrow 1.5s ease-in-out infinite;
 
-      &:nth-child(1) { height: 60%; animation-delay: 0s; }
-      &:nth-child(2) { height: 85%; animation-delay: 0.1s; }
-      &:nth-child(3) { height: 45%; animation-delay: 0.2s; }
-      &:nth-child(4) { height: 100%; animation-delay: 0.3s; }
-      &:nth-child(5) { height: 70%; animation-delay: 0.4s; }
-      &:nth-child(6) { height: 55%; animation-delay: 0.5s; }
-      &:nth-child(7) { height: 90%; animation-delay: 0.6s; }
-      &:nth-child(8) { height: 40%; animation-delay: 0.7s; }
+      &:nth-child(1) {
+        height: 60%;
+        animation-delay: 0s;
+      }
+      &:nth-child(2) {
+        height: 85%;
+        animation-delay: 0.1s;
+      }
+      &:nth-child(3) {
+        height: 45%;
+        animation-delay: 0.2s;
+      }
+      &:nth-child(4) {
+        height: 100%;
+        animation-delay: 0.3s;
+      }
+      &:nth-child(5) {
+        height: 70%;
+        animation-delay: 0.4s;
+      }
+      &:nth-child(6) {
+        height: 55%;
+        animation-delay: 0.5s;
+      }
+      &:nth-child(7) {
+        height: 90%;
+        animation-delay: 0.6s;
+      }
+      &:nth-child(8) {
+        height: 40%;
+        animation-delay: 0.7s;
+      }
     }
   }
 
@@ -97,7 +121,12 @@
     left: 8px;
     right: 8px;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--primary-light),
+      transparent
+    );
     box-shadow: 0 0 8px var(--primary-light);
     animation: laserScan 2s ease-in-out infinite;
     border-radius: 1px;
@@ -192,8 +221,12 @@
     border-radius: $border-radius;
     padding-right: 4px;
 
-    &::-webkit-scrollbar { width: 5px; }
-    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
     &::-webkit-scrollbar-thumb {
       background: var(--border-color);
       border-radius: 3px;
@@ -205,6 +238,7 @@
     grid-template-columns: repeat(8, 1fr);
     gap: 8px;
     min-height: 100px;
+    padding: 5px 0px;
   }
 
   &__empty {
@@ -263,7 +297,11 @@
     // ── Valid state (after result) ──
     &--valid {
       border-color: var(--success) !important;
-      background: color-mix(in srgb, var(--success) 8%, var(--bg-card)) !important;
+      background: color-mix(
+        in srgb,
+        var(--success) 8%,
+        var(--bg-card)
+      ) !important;
       opacity: 1 !important;
 
       .scan-jobs__job-number {
@@ -278,7 +316,11 @@
     // ── Invalid state (after result) ──
     &--invalid {
       border-color: var(--error) !important;
-      background: color-mix(in srgb, var(--error) 8%, var(--bg-card)) !important;
+      background: color-mix(
+        in srgb,
+        var(--error) 8%,
+        var(--bg-card)
+      ) !important;
       opacity: 1 !important;
 
       .scan-jobs__job-number {
@@ -301,7 +343,7 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -357,7 +399,11 @@
     font-weight: 600 !important;
     font-size: 15px !important;
     border-radius: $border-radius-sm !important;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-light)
+    ) !important;
     color: var(--btn-primary-text) !important;
 
     &:disabled {
@@ -531,8 +577,12 @@
     margin-top: 8px;
     text-align: left;
 
-    &::-webkit-scrollbar { width: 4px; }
-    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
     &::-webkit-scrollbar-thumb {
       background: var(--border-color);
       border-radius: 2px;
@@ -566,7 +616,7 @@
     flex: 1;
     font-size: 13px;
     font-weight: 600;
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
     color: var(--text-primary);
   }
 
@@ -643,7 +693,9 @@
     font-size: 13px;
     color: var(--error);
 
-    strong { font-weight: 700; }
+    strong {
+      font-weight: 700;
+    }
   }
 
   &__fix-banner-legend {
@@ -666,8 +718,12 @@
     border-radius: 50%;
     flex-shrink: 0;
 
-    &--valid   { background: var(--success); }
-    &--invalid { background: var(--error); }
+    &--valid {
+      background: var(--success);
+    }
+    &--invalid {
+      background: var(--error);
+    }
   }
 
   // Section title inline counts
@@ -712,39 +768,84 @@
 
 // ─── Keyframes ──────────────────────────────────────
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes bounceIn {
-  0%   { opacity: 0; transform: scale(0.85); }
-  60%  { transform: scale(1.04); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes barcodeGrow {
-  0%, 100% { transform: scaleY(1); }
-  50%       { transform: scaleY(0.6); }
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.6);
+  }
 }
 
 @keyframes laserScan {
-  0%   { top: 12px; }
-  50%  { top: calc(100% - 14px); }
-  100% { top: 12px; }
+  0% {
+    top: 12px;
+  }
+  50% {
+    top: calc(100% - 14px);
+  }
+  100% {
+    top: 12px;
+  }
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.06); opacity: 0.7; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.7;
+  }
 }
 
+@media (max-width: 1800px) {
+  .scan-jobs {
+    padding: 0px !important;
+  }
+}

@@ -8,7 +8,55 @@
   gap: 14px;
   width: 70%;
   min-height: 0;
-  flex: 1;
+  // flex: 1;
+}
+
+.sbe-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.sbe-modal {
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color, #e0e3ea);
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted, #9e9e9e);
+  }
+
+  &__body {
+    padding: 16px;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color, #e0e3ea);
+  }
 }
 
 // ── Top job scan bar ──────────────────────────────────────────
@@ -43,21 +91,39 @@
   font-size: 13px;
   color: var(--text-primary, #1a1f36);
   background: var(--bg-input, var(--bg-card));
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 
   &:focus {
     outline: none;
     border-color: var(--primary, #1565c0);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #1565c0) 12%, transparent);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--primary, #1565c0) 12%, transparent);
   }
 
-  &::placeholder { color: var(--text-muted, #9e9e9e); font-size: 12px; }
+  &::placeholder {
+    color: var(--text-muted, #9e9e9e);
+    font-size: 12px;
+  }
 
-  &--sm    { height: 34px; font-size: 12.5px; }
-  &--error { border-color: var(--error, #d32f2f) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--error, #d32f2f) 12%, transparent); }
-  &--dim   { opacity: 0.5; }
+  &--sm {
+    height: 34px;
+    font-size: 12.5px;
+  }
+  &--error {
+    border-color: var(--error, #d32f2f) !important;
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--error, #d32f2f) 12%, transparent);
+  }
+  &--dim {
+    opacity: 0.5;
+  }
 
-  &:disabled { background: var(--bg-surface, #f5f5f5); cursor: not-allowed; }
+  &:disabled {
+    background: var(--bg-surface, #f5f5f5);
+    cursor: not-allowed;
+  }
 }
 
 // ── Error ─────────────────────────────────────────────────────
@@ -108,9 +174,15 @@
 }
 
 @keyframes sbe-save-flash {
-  0%   { background: var(--success-light, #43a047) !important; }
-  60%  { background: var(--success, #2e7d32) !important; }
-  100% { background: var(--primary, #1565c0) !important; }
+  0% {
+    background: var(--success-light, #43a047) !important;
+  }
+  60% {
+    background: var(--success, #2e7d32) !important;
+  }
+  100% {
+    background: var(--primary, #1565c0) !important;
+  }
 }
 
 .sbe-empty {
@@ -126,8 +198,16 @@
   flex: 1;
   min-height: 180px;
 
-  h3 { font-size: 16px; font-weight: 600; color: var(--text-primary, #1a1f36); margin: 0; }
-  p  { font-size: 13px; margin: 0; }
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1f36);
+    margin: 0;
+  }
+  p {
+    font-size: 13px;
+    margin: 0;
+  }
 }
 
 // ── Active job card ───────────────────────────────────────────
@@ -158,7 +238,10 @@
     font-size: 14px;
     color: var(--text-primary, #1a1f36);
 
-    strong { color: var(--primary, #1565c0); font-weight: 700; }
+    strong {
+      color: var(--primary, #1565c0);
+      font-weight: 700;
+    }
   }
 
   &__badges {
@@ -178,8 +261,14 @@
   font-size: 12px;
   font-weight: 500;
 
-  &--green { background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent); color: var(--success, #2e7d32); }
-  &--amber { background: color-mix(in srgb, var(--warning, #f57c00) 10%, transparent); color: var(--warning, #e65100); }
+  &--green {
+    background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    color: var(--success, #2e7d32);
+  }
+  &--amber {
+    background: color-mix(in srgb, var(--warning, #f57c00) 10%, transparent);
+    color: var(--warning, #e65100);
+  }
 }
 
 // ── Bag scan bar ──────────────────────────────────────────────
@@ -189,7 +278,8 @@
   gap: 7px;
   padding: 10px 18px;
   background: color-mix(in srgb, var(--warning, #f57c00) 6%, var(--bg-card));
-  border-bottom: 1px solid color-mix(in srgb, var(--warning, #f57c00) 25%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--warning, #f57c00) 25%, transparent);
   flex-shrink: 0;
 
   &__hint {
@@ -235,10 +325,19 @@
     display: flex;
     flex-direction: column;
 
-    &::-webkit-scrollbar       { width: 5px; }
-    &::-webkit-scrollbar-track { background: transparent; }
-    &::-webkit-scrollbar-thumb { background: var(--border-color, #d0d5e8); border-radius: 4px; }
-    &::-webkit-scrollbar-thumb:hover { background: var(--border-light, #a0a8c8); }
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-color, #d0d5e8);
+      border-radius: 4px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background: var(--border-light, #a0a8c8);
+    }
   }
 
   &__row {
@@ -251,14 +350,33 @@
     transition: background 0.12s;
 
     &--pend {
-      cursor: pointer;
-      &:hover { background: color-mix(in srgb, var(--warning, #f57c00) 4%, var(--bg-card)); }
+      &:hover {
+        background: color-mix(
+          in srgb,
+          var(--warning, #f57c00) 4%,
+          var(--bg-card)
+        );
+      }
     }
 
-    &--ok { background: color-mix(in srgb, var(--success, #22c55e) 4%, var(--bg-card)); }
+    &--ok {
+      background: color-mix(
+        in srgb,
+        var(--success, #22c55e) 4%,
+        var(--bg-card)
+      );
+    }
+
+    &--not-scanned {
+      background: color-mix(in srgb, #ef4444 5%, var(--bg-card));
+    }
 
     &--sel {
-      background: color-mix(in srgb, var(--warning, #ffc107) 10%, var(--bg-card)) !important;
+      background: color-mix(
+        in srgb,
+        var(--warning, #ffc107) 10%,
+        var(--bg-card)
+      ) !important;
       outline: 2px solid var(--warning, #ffc107);
       outline-offset: -2px;
     }
@@ -286,13 +404,31 @@
     letter-spacing: 0;
   }
 
-  &--no    { width: 28px; justify-content: center; }
-  &--item  { width: 110px; }
-  &--spec  { flex: 1; min-width: 0; }
-  &--bag   { width: 148px; }
-  &--avail { width: 80px; justify-content: center; }
-  &--req   { width: 130px; justify-content: center; }
-  &--issue { width: 120px; }
+  &--no {
+    width: 28px;
+    justify-content: center;
+  }
+  &--item {
+    width: 110px;
+  }
+  &--spec {
+    flex: 1;
+    min-width: 0;
+  }
+  &--bag {
+    width: 148px;
+  }
+  &--avail {
+    width: 80px;
+    justify-content: center;
+  }
+  &--req {
+    width: 130px;
+    justify-content: center;
+  }
+  &--issue {
+    width: 120px;
+  }
 }
 
 // ── Row index ─────────────────────────────────────────────────
@@ -308,7 +444,9 @@
   font-weight: 600 !important;
   gap: 5px;
 
-  svg { flex-shrink: 0; }
+  svg {
+    flex-shrink: 0;
+  }
 }
 
 // ── 4C spec pills ─────────────────────────────────────────────
@@ -341,8 +479,25 @@
   color: var(--success, #1b5e20);
   font-size: 11.5px;
 
+  .sbe-bag-owner {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 4px;
+    font-weight: 600;
+
+    &--company {
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+    }
+    &--customer {
+      background: rgba(249, 115, 22, 0.12);
+      color: #ea580c;
+    }
+  }
+
   &__no {
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
     font-size: 11px;
     font-weight: 600;
   }
@@ -355,7 +510,10 @@
     padding: 1px;
     border-radius: 3px;
     color: var(--success-light, #4caf50);
-    &:hover { background: color-mix(in srgb, var(--success, #22c55e) 20%, transparent); color: var(--success, #1b5e20); }
+    &:hover {
+      background: color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
+      color: var(--success, #1b5e20);
+    }
   }
 }
 
@@ -376,11 +534,23 @@
     background: color-mix(in srgb, var(--warning, #ffc107) 10%, transparent);
     animation: sbe-pulse 1.2s ease-in-out infinite;
   }
+
+  &--warn {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: color-mix(in srgb, #ef4444 8%, transparent);
+    font-size: 10.5px;
+  }
 }
 
 @keyframes sbe-pulse {
-  0%, 100% { border-color: var(--warning, #ffc107); }
-  50%       { border-color: color-mix(in srgb, var(--warning, #ffc107) 80%, #000); }
+  0%,
+  100% {
+    border-color: var(--warning, #ffc107);
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--warning, #ffc107) 80%, #000);
+  }
 }
 
 // ── Available columns (read-only, blue tint) ──────────────────
@@ -399,9 +569,76 @@
   justify-content: center;
 }
 
-.sbe-dash { color: var(--text-muted, #ccc); }
+.sbe-dash {
+  color: var(--text-muted, #ccc);
+}
 
 // ── Issue inputs ──────────────────────────────────────────────
+.sbe-exhausted-cell {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #ef4444;
+  padding: 4px 7px;
+  background: color-mix(in srgb, #ef4444 8%, transparent);
+  border: 1px solid color-mix(in srgb, #ef4444 25%, transparent);
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.sbe-engaged-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 7px;
+}
+
+.sbe-engaged-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary, #1976d2);
+  padding: 2px 4px;
+  background: color-mix(in srgb, var(--primary, #1976d2) 8%, transparent);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.sbe-add-other-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--primary, #1565c0);
+  background: color-mix(in srgb, var(--primary, #1565c0) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #1565c0) 35%, transparent);
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background: color-mix(in srgb, var(--primary, #1565c0) 18%, transparent);
+  }
+}
+
+.sbe-return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #ff9800;
+  background: color-mix(in srgb, #ff9800 10%, transparent);
+  border: 1px solid color-mix(in srgb, #ff9800 35%, transparent);
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background: color-mix(in srgb, #ff9800 18%, transparent);
+  }
+}
+
 .sbe-num {
   width: 90%;
   height: 30px;
@@ -417,7 +654,8 @@
   &:focus {
     outline: none;
     border-color: var(--primary, #1565c0);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #1565c0) 15%, transparent);
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--primary, #1565c0) 15%, transparent);
   }
 
   &--off {
@@ -425,6 +663,11 @@
     color: var(--text-muted, #ccc);
     cursor: not-allowed;
     border-color: var(--border-light, #eee);
+  }
+
+  &--error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 15%, transparent) !important;
   }
 }
 
@@ -486,13 +729,17 @@
     font-weight: 600;
     color: var(--success, #2e7d32);
     background: color-mix(in srgb, var(--success, #22c55e) 8%, var(--bg-card));
-    border-bottom: 1px solid color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
   }
 
   &__job {
     padding: 10px 16px;
-    border-bottom: 1px solid color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-    &:last-child { border-bottom: none; }
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    &:last-child {
+      border-bottom: none;
+    }
   }
 
   &__job-head {
@@ -503,7 +750,9 @@
     font-size: 13px;
     color: var(--text-primary);
 
-    strong { color: var(--primary, #1565c0); }
+    strong {
+      color: var(--primary, #1565c0);
+    }
   }
 
   &__meta {
@@ -535,17 +784,33 @@
     gap: 8px;
     padding: 5px 9px;
     background: color-mix(in srgb, var(--success, #22c55e) 6%, var(--bg-card));
-    border: 1px solid color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
     border-radius: 7px;
     font-size: 11.5px;
 
-    &--warn { background: color-mix(in srgb, var(--warning, #ffc107) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning, #ffc107) 30%, transparent); }
+    &--warn {
+      background: color-mix(
+        in srgb,
+        var(--warning, #ffc107) 8%,
+        var(--bg-card)
+      );
+      border-color: color-mix(
+        in srgb,
+        var(--warning, #ffc107) 30%,
+        transparent
+      );
+    }
   }
 
-  &__spec  { flex: 1; color: var(--text-secondary, #37474f); font-weight: 500; }
+  &__spec {
+    flex: 1;
+    color: var(--text-secondary, #37474f);
+    font-weight: 500;
+  }
 
   &__bag {
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
     font-size: 11px;
     color: var(--success, #1b5e20);
     background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
@@ -570,7 +835,7 @@
 }
 
 .sbe-locked-val {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: "JetBrains Mono", "Courier New", monospace;
   font-size: 12px;
   color: var(--text-primary, #212121);
   font-weight: 600;

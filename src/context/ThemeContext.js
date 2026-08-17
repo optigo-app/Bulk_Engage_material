@@ -39,7 +39,7 @@ export function ThemeProvider({ children }) {
     return localStorage.getItem('em-theme') || null;
   });
 
-  const [showSelector, setShowSelector] = useState(!localStorage.getItem('em-theme'));
+  const [showSelector, setShowSelector] = useState(false);
 
   // Apply theme on mount and whenever currentTheme changes
   useEffect(() => {

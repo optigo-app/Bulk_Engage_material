@@ -1,4 +1,4 @@
-@import '../../styles/variables';
+@import "../../styles/variables";
 
 .select-process {
   max-width: 900px;
@@ -136,6 +136,13 @@
       box-shadow: var(--shadow-glow-blue);
     }
 
+    &--focused {
+      border-color: var(--primary) !important;
+      background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent) !important;
+      transform: translateY(-2px);
+    }
+
     h3 {
       font-size: 16px;
       font-weight: 600;
@@ -164,12 +171,30 @@
     justify-content: center;
     transition: all 0.3s ease;
 
-    &--single { background: rgba(#1565c0, 0.15); color: #42a5f5; }
-    &--bulk { background: rgba(#f57c00, 0.15); color: #ffb74d; }
-    &--a1 { background: rgba(#1565c0, 0.15); color: #42a5f5; }
-    &--a2 { background: rgba(#00897b, 0.15); color: #4db6ac; }
-    &--b1 { background: rgba(#f57c00, 0.15); color: #ffb74d; }
-    &--b2 { background: rgba(#e53935, 0.15); color: #ef5350; }
+    &--single {
+      background: rgba(#1565c0, 0.15);
+      color: #42a5f5;
+    }
+    &--bulk {
+      background: rgba(#f57c00, 0.15);
+      color: #ffb74d;
+    }
+    &--a1 {
+      background: rgba(#1565c0, 0.15);
+      color: #42a5f5;
+    }
+    &--a2 {
+      background: rgba(#00897b, 0.15);
+      color: #4db6ac;
+    }
+    &--b1 {
+      background: rgba(#f57c00, 0.15);
+      color: #ffb74d;
+    }
+    &--b2 {
+      background: rgba(#e53935, 0.15);
+      color: #ef5350;
+    }
   }
 
   &__type-label-big {
@@ -196,9 +221,9 @@
 
   &__material-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
-    max-width: 720px;
+    max-width: 1000px;
     margin: 0 auto;
   }
 
@@ -224,6 +249,13 @@
     &--selected {
       border-color: var(--mat-color, var(--primary));
       box-shadow: var(--shadow-glow-blue);
+    }
+
+    &--focused {
+      border-color: var(--mat-color, var(--primary)) !important;
+      background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent) !important;
+      transform: translateY(-2px);
     }
   }
 
@@ -282,6 +314,55 @@
     }
   }
 
+  &__card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    position: relative;
+    text-align: center;
+    transition: all 0.2s ease;
+    outline: none; // ← ADD
+
+    &:hover {
+      border-color: var(--primary-light);
+      background: var(--bg-card-hover);
+      box-shadow: var(--shadow-glow-blue);
+    }
+
+    &--selected {
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 10%, transparent);
+      box-shadow: var(--shadow-glow-blue);
+
+      .select-locker__card-icon {
+        background: color-mix(in srgb, var(--primary) 20%, transparent);
+        color: var(--primary-light);
+      }
+    }
+
+    &--focused {
+      border-color: var(--primary) !important;
+      background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
+      box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent),
+        var(--shadow-glow-blue) !important;
+      transform: translateY(-2px);
+      outline: none;
+    }
+
+    &--disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  }
+
   &__continue-btn {
     flex: 1;
     max-width: 320px;
@@ -290,11 +371,21 @@
     font-weight: 600 !important;
     font-size: 15px !important;
     border-radius: $border-radius-sm !important;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-light)
+    ) !important;
     color: var(--btn-primary-text) !important;
 
     &:disabled {
       opacity: 0.5 !important;
     }
+  }
+}
+
+@media (max-width: 1800px) {
+  .select-process {
+    padding: 0px !important;
   }
 }

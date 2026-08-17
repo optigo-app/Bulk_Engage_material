@@ -1,8 +1,8 @@
 // Bulksingleentry.scss
 // Compact table layout — no wasted vertical space
-@import '../../../styles/variables';
+@import "../../../styles/variables";
 
-$mono: 'JetBrains Mono', 'Courier New', monospace;
+$mono: "JetBrains Mono", "Courier New", monospace;
 
 // ── 70 / 30 layout wrapper ────────────────────────────────────────────────────
 .bse-layout {
@@ -14,7 +14,7 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
 
 .bse-root {
   width: 70%;
-  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
   font-size: 13px;
   color: var(--text-primary);
   border: 1.5px solid var(--border-color);
@@ -36,11 +36,23 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 
-  &__left   { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
-  &__title  { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
-  &__sub    { font-size: 11px; color: var(--text-muted); }
+  &__left {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+  &__title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  &__sub {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
 
-  &__track  {
+  &__track {
     flex: 1;
     height: 4px;
     background: var(--border-color);
@@ -77,7 +89,9 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
 // ── Job block ─────────────────────────────────────────────────────────────────
 .bse-job {
   border-bottom: 1.5px solid var(--border-color);
-  &:last-child { border-bottom: none; }
+  &:last-child {
+    border-bottom: none;
+  }
 
   &--saved .bse-job-hdr {
     background: color-mix(in srgb, var(--success, #22c55e) 8%, var(--bg-card));
@@ -96,7 +110,9 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   cursor: pointer;
   user-select: none;
   transition: background 0.12s;
-  &:hover { background: var(--bg-card-hover, var(--bg-surface)); }
+  &:hover {
+    background: var(--bg-card-hover, var(--bg-surface));
+  }
 
   &__right {
     display: flex;
@@ -107,8 +123,13 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   }
 }
 
-.bse-chevron  { color: var(--text-muted); display: flex; align-items: center; flex-shrink: 0; }
-.bse-job-id   {
+.bse-chevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.bse-job-id {
   font-size: 12px;
   font-weight: 700;
   font-family: $mono;
@@ -120,8 +141,13 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
 }
 
 // summary pills
-.bse-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.bse-pill  {
+.bse-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.bse-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -132,7 +158,11 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   border-radius: 5px;
   color: var(--text-secondary);
 
-  b { color: var(--pc, var(--text-primary)); font-size: 10.5px; margin-right: 2px; }
+  b {
+    color: var(--pc, var(--text-primary));
+    font-size: 10.5px;
+    margin-right: 2px;
+  }
 }
 
 // badge
@@ -152,7 +182,9 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     border-color: color-mix(in srgb, var(--success, #22c55e) 35%, transparent);
   }
 }
-.bse-check-icon { color: var(--success, #22c55e); }
+.bse-check-icon {
+  color: var(--success, #22c55e);
+}
 
 // ── Table ─────────────────────────────────────────────────────────────────────
 .bse-table-wrap {
@@ -168,8 +200,10 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
 }
 
 // thead rows
-.bse-thead-main { }
-.bse-thead-sub  { }
+.bse-thead-main {
+}
+.bse-thead-sub {
+}
 
 .bse-th {
   padding: 6px 10px;
@@ -183,14 +217,37 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   text-align: center;
   white-space: nowrap;
 
-  &--sr    { width: 36px; }
-  &--mat   { width: 110px; text-align: left; }
-  &--desc  { text-align: left; }
-  &--bag   { width: 130px; }
-  &--group { border-bottom: none; }
-  &--sub   { border-top: none; font-size: 10px; font-weight: 600; color: var(--text-muted); }
-  &--avail { background: color-mix(in srgb, var(--primary) 8%, var(--bg-card)); color: var(--primary-light, var(--primary)); }
-  &--entry { background: color-mix(in srgb, var(--warning, #f57c00) 8%, var(--bg-card)); color: var(--warning, #c0621a); }
+  &--sr {
+    width: 36px;
+  }
+  &--mat {
+    width: 110px;
+    text-align: left;
+  }
+  &--desc {
+    width: 300px;
+    text-align: left;
+  }
+  &--bag {
+    width: 130px;
+  }
+  &--group {
+    border-bottom: none;
+  }
+  &--sub {
+    border-top: none;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  &--avail {
+    background: color-mix(in srgb, var(--primary) 8%, var(--bg-card));
+    color: var(--primary-light, var(--primary));
+  }
+  &--entry {
+    background: color-mix(in srgb, var(--warning, #f57c00) 8%, var(--bg-card));
+    color: var(--warning, #c0621a);
+  }
 }
 
 // tbody rows
@@ -198,11 +255,19 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   border-bottom: 1px solid var(--border-light, var(--border-color));
   transition: background 0.1s;
 
-  &:last-child { border-bottom: none; }
-  &:hover { background: var(--bg-card-hover, var(--bg-surface)); }
+  &:last-child {
+    border-bottom: none;
+  }
+  &:hover {
+    background: var(--bg-card-hover, var(--bg-surface));
+  }
 
-  &--bag   { background: color-mix(in srgb, var(--primary) 3%, var(--bg-card)); }
-  &--nobag { background: color-mix(in srgb, var(--warning, #f57c00) 3%, var(--bg-card)); }
+  &--bag {
+    background: color-mix(in srgb, var(--primary) 3%, var(--bg-card));
+  }
+  &--nobag {
+    background: color-mix(in srgb, var(--warning, #f57c00) 3%, var(--bg-card));
+  }
 }
 
 .bse-td {
@@ -210,13 +275,34 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   border-right: 1px solid var(--border-light, var(--border-color));
   vertical-align: middle;
 
-  &:last-child { border-right: none; }
+  &:last-child {
+    border-right: none;
+  }
 
-  &--sr   { text-align: center; color: var(--text-muted); font-size: 11px; font-family: $mono; }
-  &--mat  { }
-  &--desc { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
-  &--bag  { text-align: center; }
-  &--num  { text-align: right; font-family: $mono; font-size: 15px;font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+  &--sr {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: $mono;
+  }
+  &--mat {
+  }
+  &--desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  &--bag {
+    text-align: center;
+  }
+  &--num {
+    text-align: right;
+    font-family: $mono;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
   &--avail {
     text-align: right;
     font-family: $mono;
@@ -224,7 +310,9 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     color: var(--primary-light, var(--primary));
     background: color-mix(in srgb, var(--primary) 5%, transparent);
   }
-  &--entry { text-align: center; }
+  &--entry {
+    text-align: center;
+  }
 }
 
 // material name
@@ -247,11 +335,76 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   font-family: $mono;
   white-space: nowrap;
 
-  &--auto   { background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent); color: var(--success, #2e7d32); border: 1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent); }
-  &--manual { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary-light, var(--primary)); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); }
-  &--none   { background: color-mix(in srgb, var(--warning, #f57c00) 10%, transparent); color: var(--warning, #bf360c); border: 1px dashed color-mix(in srgb, var(--warning, #f57c00) 40%, transparent); font-family: inherit; font-weight: 400; }
+  &--auto {
+    background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    color: var(--success, #2e7d32);
+    border: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+  }
+  &--manual {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary-light, var(--primary));
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+  &--none {
+    background: color-mix(in srgb, var(--warning, #f57c00) 10%, transparent);
+    color: var(--warning, #bf360c);
+    border: 1px dashed
+      color-mix(in srgb, var(--warning, #f57c00) 40%, transparent);
+    font-family: inherit;
+    font-weight: 400;
+  }
 }
 
+.bse-owner-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+  font-weight: 600;
+  display: inline-block;
+
+  &--company {
+    // background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+  }
+  &--customer {
+    background: rgba(249, 115, 22, 0.12);
+    color: #ea580c;
+  }
+}
+
+.bse-table {
+  table-layout: fixed; // prevents cells fighting for width
+}
+
+.bse-tr {
+  height: auto; // remove any fixed row height
+}
+
+.bse-td {
+  vertical-align: top;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.bse-td--desc {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.bse-chip--auto {
+  height: auto; // let the two-line rfbag/company chip grow naturally
+}
+
+.bse-expand-all-btn {
+  background-color: #dff0e9;
+  border: none;
+  padding: 5px;
+  border-radius: 20px;
+  cursor: pointer;
+}
 // inputs
 .bse-inp {
   width: 80px;
@@ -264,7 +417,9 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   background: var(--bg-input, var(--bg-card));
   outline: none;
   font-weight: 600;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
   text-align: right;
 
   &:focus {
@@ -272,15 +427,106 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
   }
 
-  &::placeholder { color: black }
+  &::placeholder {
+    color: black;
+  }
 
   // remove spinners
   &::-webkit-inner-spin-button,
-  &::-webkit-outer-spin-button { -webkit-appearance: none; }
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+  }
   -moz-appearance: textfield;
+
+  &--error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 15%, transparent) !important;
+  }
 }
 
-.bse-muted { color: var(--text-muted); font-size: 12px; }
+.bse-exhausted-cell {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #ef4444;
+  padding: 3px 6px;
+  background: color-mix(in srgb, #ef4444 8%, transparent);
+  border: 1px solid color-mix(in srgb, #ef4444 25%, transparent);
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.bse-avl-hint {
+  font-size: 10px;
+  color: var(--primary-light, var(--primary));
+  opacity: 0.8;
+  white-space: nowrap;
+
+  &--error {
+    color: #ef4444;
+    opacity: 1;
+    font-weight: 600;
+  }
+}
+
+.bse-engaged-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.bse-engaged-val {
+  font-size: 13px;
+  font-family: $mono;
+  font-weight: 700;
+  color: var(--primary, #1976d2);
+  padding: 2px 4px;
+  background: color-mix(in srgb, var(--primary, #1976d2) 8%, transparent);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.bse-add-other-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--primary, #1565c0);
+  background: color-mix(in srgb, var(--primary, #1565c0) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #1565c0) 35%, transparent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background: color-mix(in srgb, var(--primary, #1565c0) 18%, transparent);
+  }
+}
+
+.bse-return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #ff9800;
+  background: color-mix(in srgb, #ff9800 10%, transparent);
+  border: 1px solid color-mix(in srgb, #ff9800 35%, transparent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background: color-mix(in srgb, #ff9800 18%, transparent);
+  }
+}
+
+.bse-muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
 
 // add bag button
 .bse-add-btn {
@@ -295,12 +541,18 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   color: var(--primary-light, var(--primary));
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  transition: background 0.12s, transform 0.1s;
+  font-family: "DM Sans", sans-serif;
+  transition:
+    background 0.12s,
+    transform 0.1s;
   white-space: nowrap;
 
-  &:hover  { background: color-mix(in srgb, var(--primary) 18%, transparent); }
-  &:active { transform: scale(0.97); }
+  &:hover {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
 }
 
 // save row
@@ -318,7 +570,9 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   border-radius: 6px !important;
   padding: 4px 14px !important;
   letter-spacing: 0 !important;
-  &:hover { background: var(--primary-dark, var(--primary)) !important; }
+  &:hover {
+    background: var(--primary-dark, var(--primary)) !important;
+  }
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -346,24 +600,52 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   position: relative;
 
   &__close {
-    position: absolute; top: 12px; right: 12px;
-    border: none; background: none; cursor: pointer; color: var(--text-muted);
-    display: flex; align-items: center; padding: 4px; border-radius: 50%;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border-radius: 50%;
     transition: background 0.12s;
-    &:hover { background: var(--bg-surface, var(--bg-input)); color: var(--text-primary); }
+    &:hover {
+      background: var(--bg-surface, var(--bg-input));
+      color: var(--text-primary);
+    }
   }
 
   &__icon {
-    width: 48px; height: 48px; border-radius: 50%;
-    background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary);
-    display: flex; align-items: center; justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     margin: 0 auto 12px;
   }
 
-  h3 { font-size: 15px; font-weight: 700; margin: 0 0 4px; color: var(--text-primary); }
-  p  { font-size: 12px; color: var(--text-muted); margin: 0 0 14px; }
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--text-primary);
+  }
+  p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 14px;
+  }
 
-  &__row { display: flex; gap: 7px; }
+  &__row {
+    display: flex;
+    gap: 7px;
+  }
 
   &__input {
     flex: 1;
@@ -376,53 +658,109 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     background: var(--bg-input, var(--bg-surface));
     outline: none;
     transition: border-color 0.15s;
-    &:focus { border-color: var(--primary); }
-    &::placeholder { color: var(--text-muted); }
+    &:focus {
+      border-color: var(--primary);
+    }
+    &::placeholder {
+      color: var(--text-muted);
+    }
   }
 
   &__check-btn {
     padding: 8px 14px;
-    background: var(--primary); color: var(--btn-primary-text, #fff);
-    border: none; border-radius: 7px;
-    font-size: 12.5px; font-weight: 600;
-    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    background: var(--primary);
+    color: var(--btn-primary-text, #fff);
+    border: none;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: "DM Sans", sans-serif;
     transition: background 0.12s;
-    &:hover { background: var(--primary-dark, var(--primary)); }
+    &:hover {
+      background: var(--primary-dark, var(--primary));
+    }
   }
 
   &__error {
-    display: flex; align-items: center; gap: 5px;
-    margin-top: 9px; font-size: 11.5px; color: var(--error, #c62828);
-    background: color-mix(in srgb, var(--error, #c62828) 10%, transparent); border-radius: 6px; padding: 6px 10px; text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 9px;
+    font-size: 11.5px;
+    color: var(--error, #c62828);
+    background: color-mix(in srgb, var(--error, #c62828) 10%, transparent);
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: left;
   }
 
   &__found {
-    display: flex; align-items: flex-start; gap: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     margin-top: 10px;
-    background: color-mix(in srgb, var(--success, #22c55e) 8%, transparent); border: 1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
-    border-radius: 7px; padding: 9px 11px; text-align: left; color: var(--success, #166534);
+    background: color-mix(in srgb, var(--success, #22c55e) 8%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+    border-radius: 7px;
+    padding: 9px 11px;
+    text-align: left;
+    color: var(--success, #166534);
 
-    > div { display: flex; flex-direction: column; gap: 2px; }
-    strong { font-size: 12.5px; font-family: $mono; color: var(--text-primary); }
-    span   { font-size: 11px; color: var(--text-secondary); }
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    strong {
+      font-size: 12.5px;
+      font-family: $mono;
+      color: var(--text-primary);
+    }
+    span {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
   }
 
   &__confirm-btn {
-    margin-top: 12px; width: 100%; padding: 9px;
-    background: var(--success, #16a34a); color: #fff;
-    border: none; border-radius: 8px;
-    font-size: 13px; font-weight: 700; cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
+    margin-top: 12px;
+    width: 100%;
+    padding: 9px;
+    background: var(--success, #16a34a);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: "DM Sans", sans-serif;
     transition: background 0.12s;
-    &:hover { background: color-mix(in srgb, var(--success, #16a34a) 85%, #000); }
+    &:hover {
+      background: color-mix(in srgb, var(--success, #16a34a) 85%, #000);
+    }
   }
 }
 
 // ── Animations ────────────────────────────────────────────────────────────────
-@keyframes bse-fade { from { opacity: 0 } to { opacity: 1 } }
-@keyframes bse-up   {
-  from { opacity: 0; transform: translateY(16px) scale(0.97) }
-  to   { opacity: 1; transform: translateY(0)    scale(1)    }
+@keyframes bse-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes bse-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 // ── Entry cell with Avl hint below ────────────────────────────────────────────
@@ -430,7 +768,7 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
   display: flex;
   flex-direction: column;
   gap: 2px;
- align-items: flex-end;
+  align-items: flex-end;
 }
 
 .bse-avl-hint {
@@ -459,7 +797,8 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     font-weight: 700;
     color: var(--success, #2e7d32);
     background: color-mix(in srgb, var(--success, #22c55e) 8%, var(--bg-card));
-    border-bottom: 1px solid color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
     position: sticky;
     top: 0;
     z-index: 1;
@@ -467,8 +806,11 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
 
   &__job {
     padding: 10px 14px;
-    border-bottom: 1px solid color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-    &:last-child { border-bottom: none; }
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    &:last-child {
+      border-bottom: none;
+    }
   }
 
   &__job-head {
@@ -479,7 +821,11 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 12.5px;
     color: var(--text-primary);
 
-    strong { color: var(--primary, #1565c0); font-family: $mono; font-size: 11.5px; }
+    strong {
+      color: var(--primary, #1565c0);
+      font-family: $mono;
+      font-size: 11.5px;
+    }
   }
 
   &__meta {
@@ -499,17 +845,30 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
     gap: 6px;
     padding: 4px 8px;
     background: color-mix(in srgb, var(--success, #22c55e) 5%, var(--bg-card));
-    border: 1px solid color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
     border-radius: 6px;
     font-size: 11px;
 
     &--warn {
-      background: color-mix(in srgb, var(--warning, #ffc107) 6%, var(--bg-card));
-      border-color: color-mix(in srgb, var(--warning, #ffc107) 25%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--warning, #ffc107) 6%,
+        var(--bg-card)
+      );
+      border-color: color-mix(
+        in srgb,
+        var(--warning, #ffc107) 25%,
+        transparent
+      );
     }
   }
 
-  &__spec { flex: 1; color: var(--text-secondary); font-weight: 500; }
+  &__spec {
+    flex: 1;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
 
   &__bag {
     font-family: $mono;
@@ -596,10 +955,23 @@ $mono: 'JetBrains Mono', 'Courier New', monospace;
 
 // ── Responsive ────────────────────────────────────────────────────────────────
 @media (max-width: 768px) {
-  .bse-layout { flex-direction: column; }
-  .bse-root   { width: 100%; }
-  .bse-sidebar { width: 100%; max-height: 300px; }
-  .bse-table { font-size: 11px; }
-  .bse-inp   { width: 64px; }
-  .bse-td--desc { white-space: normal; }
+  .bse-layout {
+    flex-direction: column;
+  }
+  .bse-root {
+    width: 100%;
+  }
+  .bse-sidebar {
+    width: 100%;
+    max-height: 300px;
+  }
+  .bse-table {
+    font-size: 11px;
+  }
+  .bse-inp {
+    width: 64px;
+  }
+  .bse-td--desc {
+    white-space: normal;
+  }
 }

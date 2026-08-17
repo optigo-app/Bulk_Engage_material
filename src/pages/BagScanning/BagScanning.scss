@@ -8,6 +8,17 @@
   flex-direction: column;
   min-height: calc(100vh - #{$header-height} - 64px);
 
+  .bag-scanning__bag-badge--not-available {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+  }
+
+  .bag-scanning__bag-card--unavailable {
+    opacity: 0.85;
+    border-left: 3px solid #ef4444;
+  }
+
   // ─── Header ───────────────────────────────────────
   &__header {
     margin-bottom: 24px;
@@ -38,16 +49,14 @@
     color: var(--text-secondary);
   }
 
-  // ─── Layout ───────────────────────────────────────
   &__layout {
     display: grid;
     grid-template-columns: 320px 1fr;
     gap: 24px;
-    flex: 1;
-    min-height: 0;
+    height: 65vh;
+    overflow: auto;
   }
 
-  // ─── Left Panel ───────────────────────────────────
   &__left {
     display: flex;
     flex-direction: column;
@@ -340,7 +349,6 @@
     gap: 10px;
     min-height: 0; // allows children to scroll
     width: 50%;
-
     &--others {
       width: 50%;
     }
@@ -377,6 +385,22 @@
     &--others {
       background: color-mix(in srgb, var(--warning, #ff9800) 15%, transparent);
       color: var(--warning, #ff9800);
+    }
+  }
+
+  .bag-scanning__scan-message {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+
+    &--error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
     }
   }
 
@@ -493,7 +517,7 @@
     flex-shrink: 0;
 
     &--other {
-      background: color-mix(in srgb,#ff9800 15%, transparent);
+      background: color-mix(in srgb, #ff9800 15%, transparent);
       border-color: color-mix(in srgb, #ff9800 30%, transparent);
       color: #ff9800;
     }
@@ -518,7 +542,7 @@
   }
 
   &__bag-type {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -537,6 +561,17 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  &__btn-scan {
+    background-color: #c9caf5 !important;
+    border-radius: 15px !important;
+    padding: 2px 13px !important;
+    border: 0px !important;
+    color: black !important;
+    font-size: 12px !important;
   }
 
   &__bag-badge {
@@ -649,35 +684,153 @@
   }
 
   &__filter-pills {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__filter-pill {
+    padding: 5px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+
+    &:hover {
+      border-color: var(--primary);
+      color: var(--primary-light);
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+    }
+
+    &--active {
+      background: color-mix(in srgb, var(--primary) 15%, transparent);
+      border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+      color: var(--primary-light);
+    }
+  }
 }
 
-&__filter-pill {
-  padding: 5px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-secondary);
+// ─────────────────────────────────────────────────────────────
+// Add these rules into BagScanning.scss (inside the existing
+// .bag-scanning block). They style the new grouped "material"
+// card used by the Available view.
+// ─────────────────────────────────────────────────────────────
+
+.bag-scanning__bag-card--material {
+  align-items: flex-start;
+}
+
+.bag-scanning__bag-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
   font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+
+}
+
+.bag-scanning__bag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  user-select: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 
   &:hover {
-    border-color: var(--primary);
-    color: var(--primary-light);
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    background: #e2e8f0;
   }
 
-  &--active {
-    background: color-mix(in srgb, var(--primary) 15%, transparent);
-    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
-    color: var(--primary-light);
+  &--scanned {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #15803d;
+  }
+
+  &--just-scanned {
+    animation: bagChipPop 0.4s ease;
+  }
+
+  // Cursor stays default for a scanned chip — the whole chip is no longer a
+  // scan trigger, only the X removes the scan.
+  &--scanned {
+    cursor: default;
   }
 }
+
+.bag-scanning__bag-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  padding: 1px;
+  border-radius: 999px;
+  color: #15803d;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: #ef4444;
+    color: #fff;
+  }
+}
+
+.bag-scanning__bag-chip-sep {
+  color: #94a3b8;
+}
+
+.bag-scanning__bag-inputs-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.bag-scanning__bag-inputs-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  min-width: 92px;
+}
+
+.bag-scanning__bag-badge--available {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.bag-scanning__bag-badge--scan-progress {
+  margin-top: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+@keyframes bagChipPop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 // ─── Keyframes ────────────────────────────────────────────────
@@ -734,5 +887,17 @@
   100% {
     transform: scale(1.7);
     opacity: 0;
+  }
+}
+
+@media (max-width: 1800px) {
+  .bag-scanning {
+    padding: 0px !important;
+  }
+
+  .bag-scanning {
+    &__layout {
+      height: 70vh !important;
+    }
   }
 }

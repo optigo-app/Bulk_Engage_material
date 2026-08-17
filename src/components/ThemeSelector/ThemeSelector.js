@@ -5,11 +5,8 @@ import './ThemeSelector.scss';
 
 const ThemeSelector = () => {
   const { currentTheme, themes, switchTheme, showSelector, setShowSelector } = useTheme();
-
   if (!showSelector) return null;
-
   const systemThemeId = 'system';
-
   const systemOption = {
     id: systemThemeId,
     name: 'System',

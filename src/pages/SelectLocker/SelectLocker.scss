@@ -1,4 +1,4 @@
-@import '../../styles/variables';
+@import "../../styles/variables";
 
 .select-locker {
   max-width: 900px;
@@ -59,6 +59,12 @@
       border-color: var(--primary-light);
       background: var(--bg-card-hover);
       box-shadow: var(--shadow-glow-blue);
+    }
+
+    &--focused {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
+      transform: translateY(-2px);
     }
 
     &--selected {
@@ -170,11 +176,24 @@
     font-weight: 600 !important;
     font-size: 15px !important;
     border-radius: $border-radius-sm !important;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-light)
+    ) !important;
     color: var(--btn-primary-text) !important;
 
     &:disabled {
       opacity: 0.5 !important;
     }
+  }
+}
+
+
+
+@media (max-width: 1800px) {
+
+  .select-locker{
+    padding: 0px !important;
   }
 }

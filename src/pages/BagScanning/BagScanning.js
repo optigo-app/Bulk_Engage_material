@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useEngage } from '../../context/EngageContext';
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useEngage } from "../../context/EngageContext";
 import {
   ScanLine,
   ArrowLeft,
@@ -12,14 +12,14 @@ import {
   Gem,
   Palette,
   Wrench,
-} from 'lucide-react';
-import Button from '@mui/material/Button';
-import './BagScanning.scss';
+  X,
+} from "lucide-react";
+import Button from "@mui/material/Button";
+import "./BagScanning.scss";
+import { getMaster, isMasterKey } from "../../Utils/masterStore";
 
-// ─────────────────────────────────────────────────────────────
-// sessionStorage helpers
-// ─────────────────────────────────────────────────────────────
 const getSessionData = (key) => {
+  if (isMasterKey(key)) return getMaster(key, []);
   try {
     const raw = sessionStorage.getItem(key);
     return raw ? JSON.parse(raw) : [];
@@ -28,160 +28,344 @@ const getSessionData = (key) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// Item label / icon / color
-// ─────────────────────────────────────────────────────────────
 const getItemLabel = (itemid) => {
   switch (itemid) {
-    case 3: return 'Diamond';
-    case 4: return 'Colorstone';
-    case 5: return 'Finding / Misc';
-    default: return 'Unknown';
+    case 3:
+      return "Diamond";
+    case 4:
+      return "Colorstone";
+    case 5:
+      return "Finding";
+    case 7:
+      return "Misc";
+    default:
+      return "Unknown";
   }
 };
 
 const getItemIcon = (itemid) => {
   switch (itemid) {
-    case 3: return Gem;
-    case 4: return Palette;
-    case 5: return Wrench;
-    default: return Package;
+    case 3:
+      return Gem;
+    case 4:
+      return Palette;
+    case 5:
+      return Wrench;
+    default:
+      return Package;
   }
 };
 
 const getItemColor = (itemid) => {
   switch (itemid) {
-    case 3: return '#e91e63';
-    case 4: return '#9c27b0';
-    case 5: return '#ff9800';
-    default: return '#607d8b';
+    case 3:
+      return "#e91e63";
+    case 4:
+      return "#9c27b0";
+    case 5:
+      return "#ff9800";
+    default:
+      return "#607d8b";
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// matchBagsForItem — exact match on itemid+shape+Quality+color+size
-// Returns allBagListData rows that satisfy this material line
-// ─────────────────────────────────────────────────────────────
+// Normalize for comparison: trim, collapse internal whitespace, uppercase.
+// Fixes finding lines silently failing to match (e.g. "Anchor chain  0.5"
+// vs "Anchor chain 0.5").
+const norm = (v) =>
+  (v || "").toString().trim().replace(/\s+/g, " ").toUpperCase();
+
 const matchBagsForItem = (jobMaterial, allBags) => {
-  const jobSize = jobMaterial.size || jobMaterial.customsize || '';
+  const jobSize = norm(jobMaterial.size || jobMaterial.customsize || "");
   return allBags.filter((bag) => {
-    const bagSize = bag.Size || bag.customesize || '';
+    const bagSize = norm(bag.Size || bag.customesize || "");
     return (
-      bag.itemid    === jobMaterial.itemid &&
-      bag.shape     === jobMaterial.shape  &&
-      bag.Quality   === jobMaterial.Quality &&
-      bag.color     === jobMaterial.color  &&
-      bagSize       === jobSize
+      bag.itemid === jobMaterial.itemid &&
+      norm(bag.shape) === norm(jobMaterial.shape) &&
+      norm(bag.Quality) === norm(jobMaterial.Quality) &&
+      norm(bag.color) === norm(jobMaterial.color) &&
+      bagSize === jobSize
     );
   });
 };
 
 const matchFindingBags = (jobMaterial, allBags) => {
-  return allBags.filter((bag) => (
-    bag.itemid             === jobMaterial.itemid &&
-    bag.shape              === jobMaterial.shape  &&
-    bag.Quality            === jobMaterial.Quality &&
-    bag.color              === jobMaterial.color  &&
-    (bag.findingtypename   || '') === (jobMaterial.findingtypename   || '') &&
-    (bag.findingAccessories || '') === (jobMaterial.findingAccessories || '')
-  ));
+  return allBags.filter(
+    (bag) =>
+      bag.itemid === jobMaterial.itemid &&
+      norm(bag.shape) === norm(jobMaterial.shape) &&
+      norm(bag.Quality) === norm(jobMaterial.Quality) &&
+      norm(bag.color) === norm(jobMaterial.color) &&
+      norm(bag.findingtype) === norm(jobMaterial.findingtypename) &&
+      norm(bag.findingAccessories) === norm(jobMaterial.findingAccessories),
+  );
 };
 
-// ─────────────────────────────────────────────────────────────
-// buildRequiredBags
-//   scannedJobMaterialData  →  each line is one material spec
-//   allBagListData          →  physical bags in lockers
-//   Result: flat array of bag entries, each carrying its
-//           parent material for display
-// ─────────────────────────────────────────────────────────────
 const buildRequiredBags = () => {
-  const materialLines = getSessionData('scannedJobMaterialData'); // [{qid,jid,itemid,shape,Quality,color,size,...}]
-  const allBags       = getSessionData('allBagListData');         // [{rfbag,itemid,shape,Quality,color,Size,...}]
+  const materialLines = (getSessionData("scannedJobMaterialData") || []).filter(
+    (material) => material.shape !== "Stamping",
+  );
+  const allBags = getSessionData("allBagListData");
 
-  if (!materialLines.length || !allBags.length) return [];
+  if (!materialLines.length) {
+    return { available: [], unavailable: [] };
+  }
 
-  const result = [];
+  const available = [];
+  const unavailable = [];
 
   materialLines.forEach((material) => {
-    // Choose matcher — findings use findingtypename/findingAccessories instead of size
     const isFinding = material.itemid === 5;
     const matchedBags = isFinding
       ? matchFindingBags(material, allBags)
       : matchBagsForItem(material, allBags);
 
+    if (matchedBags.length === 0) {
+      unavailable.push({
+        id: `na-${material.qid}`,
+        itemid: material.itemid,
+        type: getItemLabel(material.itemid),
+        color: getItemColor(material.itemid),
+        shape: material.shape,
+        quality: material.Quality,
+        size: material.size || material.customsize || "",
+        color_name: material.color,
+        findingtypename: material.findingtypename || "",
+        findingAccessories: material.findingAccessories || "",
+        qid: material.qid,
+        jid: material.jid,
+        SerialJobNo: material.SerialJobNo,
+        QuotationNo: material.QuotationNo,
+        materialWt: material.wt,
+        materialPcs: material.pcs,
+        materialShape: material.shape,
+        materialQuality: material.Quality,
+        materialColor: material.color,
+        materialSize: material.size || material.customsize || "",
+      });
+      return;
+    }
+
     matchedBags.forEach((bag) => {
-      // Avoid duplicates (same rfbag matched by multiple material lines)
-      const alreadyAdded = result.find((r) => r.id === bag.rfbag);
+      const alreadyAdded = available.find((r) => r.id === bag.rfbag);
       if (!alreadyAdded) {
-        result.push({
-          // ── identity ──
-          id:       bag.rfbag,
-          rfbag:    bag.rfbag,
-
-          // ── bag physical data ──
-          itemid:   bag.itemid,
-          type:     getItemLabel(bag.itemid),
-          color:    getItemColor(bag.itemid),   // UI accent color
-          shape:    bag.shape,
-          quality:  bag.Quality,
-          size:     bag.Size || bag.customesize || '',
-          color_name:       bag.color,
-          findingtypename:  bag.findingtypename  || '',
-          findingAccessories: bag.findingAccessories || '',
-          remwt:    bag.remwt,
-          rempcs:   bag.rempcs,
+        available.push({
+          id: bag.rfbag,
+          rfbag: bag.rfbag,
+          itemid: bag.itemid,
+          type: getItemLabel(bag.itemid),
+          color: getItemColor(bag.itemid),
+          shape: bag.shape,
+          quality: bag.Quality,
+          size: bag.Size || bag.customesize || "",
+          color_name: bag.color,
+          findingtypename: bag.findingtypename || "",
+          findingAccessories: bag.findingAccessories || "",
+          remwt: bag.remwt,
+          rempcs: bag.rempcs,
           LockerName: bag.LockerName,
-          iscompany:  bag.iscompany,
+          iscompany: bag.iscompany,
           istoreCust_CustName: bag.istoreCust_CustName,
-
-          // ── parent material line (for display & traceability) ──
-          qid:             material.qid,
-          jid:             material.jid,
-          SerialJobNo:     material.SerialJobNo,
-          QuotationNo:     material.QuotationNo,
-          materialWt:      material.wt,
-          materialPcs:     material.pcs,
-          materialShape:   material.shape,
+          istoreCust_Customercode: bag.istoreCust_Customercode,
+          qid: material.qid,
+          jid: material.jid,
+          SerialJobNo: material.SerialJobNo,
+          QuotationNo: material.QuotationNo,
+          materialWt: material.wt,
+          materialPcs: material.pcs,
+          materialShape: material.shape,
           materialQuality: material.Quality,
-          materialColor:   material.color,
-          materialSize:    material.size || material.customsize || '',
+          materialColor: material.color,
+          materialSize: material.size || material.customsize || "",
         });
       }
     });
   });
 
-  return result;
+  return { available, unavailable };
 };
 
-// ─────────────────────────────────────────────────────────────
 const BagScanning = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
-  const [scanValue, setScanValue]           = useState('');
-  const [lastScanned, setLastScanned]       = useState(null);
-  const [otherBags, setOtherBags]           = useState([]);
+  const [scanValue, setScanValue] = useState("");
+  const [lastScanned, setLastScanned] = useState(null);
   const [lastOtherScanned, setLastOtherScanned] = useState(null);
-  // bagData[rfbag] = { pcs, cwt }  — always disabled (pre-filled, read-only)
-  const [bagData, setBagData]               = useState({});
-  const [listVisible, setListVisible]       = useState(true);
-  const [bagFilter, setBagFilter]           = useState('all');
-
-  const inputRef         = useRef(null);
+  const [bagData, setBagData] = useState({});
+  const [listVisible, setListVisible] = useState(true);
+  const [bagFilter, setBagFilter] = useState("all");
+  const [unavailableBags, setUnavailableBags] = useState([]);
+  const [availabilityView, setAvailabilityView] = useState("all");
+  const [scanMessage, setScanMessage] = useState(null); // { type: 'error', text: '...' }
+  const scanMessageTimerRef = useRef(null);
+  const alljobdataRef = useRef([]);
+  const inputRef = useRef(null);
   const highlightTimerRef = useRef(null);
-  const listTimerRef      = useRef(null);
+  const listTimerRef = useRef(null);
 
-  // ── Build required bags once on mount ──
+
+  // Restore scanned-bag input values if returning from Material Entry
+  useEffect(() => {
+    if (state.scannedBags.length === 0) return;
+
+    const savedBagData = getSessionData('scannedBagData');
+
+    setBagData((prev) => {
+      let changed = false;
+      const restored = { ...prev };
+
+      state.scannedBags.forEach((bag) => {
+        if (restored[bag.id]) return; // already have it, skip
+        const saved = savedBagData.find((b) => b.rfbag === bag.rfbag);
+        restored[bag.id] = {
+          pcs: saved?.scannedPcs ?? (bag.rempcs !== undefined ? String(bag.rempcs) : ''),
+          cwt: saved?.scannedCwt ?? (bag.remwt !== undefined ? String(bag.remwt) : ''),
+        };
+        changed = true;
+      });
+
+      return changed ? restored : prev; // avoid setState if nothing changed
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.scannedBags]);
+
   useEffect(() => {
     actions.setStep(5);
-    if (state.scannedJobs.length === 0) navigate('/scan-jobs');
 
+    if (state.scannedJobs.length === 0) {
+      navigate("/scan-jobs");
+      return;
+    }
+
+    const alljobdata = JSON.parse(
+      sessionStorage.getItem("scannedJobListData") || "[]",
+    );
+    alljobdataRef.current = alljobdata; // add this line
     const required = buildRequiredBags();
-    actions.setRequiredBags(required);
+    const filterByLockerAndType = (list) =>
+      list
+        .filter((bag) => {
+          const lockerMatch =
+            (bag.LockerName || "").replace(/\s/g, "") ===
+            (state.locker.name || "").replace(/\s/g, "");
+          return bag.LockerName ? lockerMatch : true;
+        })
+        .filter((bag) => {
+          if (bag.iscompany === 1 || bag.iscompany === undefined) return true;
+          return alljobdata.some(
+            (job) => job.ccode == bag.istoreCust_Customercode,
+          );
+        })
+        .filter((bag) => {
+          switch (state.materialType?.toLowerCase()) {
+            case "diamond":
+              return bag.type === "Diamond";
+            case "colorstone":
+              return bag.type === "Colorstone";
+            case "misc":
+              return bag.type === "Misc";
+            case "findings":
+              return bag.type === "Finding";
+            case "all":
+            default:
+              return true;
+          }
+        });
 
+    const filteredAvailable = filterByLockerAndType(required.available);
+    const filteredUnavailable = filterByLockerAndType(required.unavailable);
+
+    actions.setRequiredBags(filteredAvailable);
+    setUnavailableBags(filteredUnavailable);
     inputRef.current?.focus();
+    // const filteredAvailable = filterByLockerAndType(required.available);
+    // const filteredUnavailable = filterByLockerAndType(required.unavailable);
+
+    // // ── Reconcile dropped material lines ──
+    // // A material line (qid) can have ALL of its matched bags filtered
+    // // out by locker/owner/type (e.g. every bag for "Lobster lock" sits
+    // // in RLocker but the active locker is Locker1). Previously that
+    // // line just vanished from both lists, silently shrinking the
+    // // "All Material" total (10 → 8 in the 1/8477 example). Instead,
+    // // any qid present in required.available but absent from
+    // // filteredAvailable gets demoted into "unavailable" so it still
+    // // counts and is visible to the user (with a reason).
+    // const matchedQidsBeforeFilter = new Set(
+    //   required.available.map((b) => b.qid),
+    // );
+    // const matchedQidsAfterFilter = new Set(filteredAvailable.map((b) => b.qid));
+    // const droppedByLockerFilter = [];
+
+    // matchedQidsBeforeFilter.forEach((qid) => {
+    //   if (!matchedQidsAfterFilter.has(qid)) {
+    //     const sample = required.available.find((b) => b.qid === qid);
+    //     if (sample) {
+    //       droppedByLockerFilter.push({
+    //         id: `na-locker-${qid}`,
+    //         itemid: sample.itemid,
+    //         type: sample.type,
+    //         color: sample.color,
+    //         shape: sample.materialShape,
+    //         quality: sample.materialQuality,
+    //         size: sample.materialSize,
+    //         color_name: sample.materialColor,
+    //         findingtypename: sample.findingtypename || "",
+    //         findingAccessories: sample.findingAccessories || "",
+    //         qid: sample.qid,
+    //         jid: sample.jid,
+    //         SerialJobNo: sample.SerialJobNo,
+    //         QuotationNo: sample.QuotationNo,
+    //         materialWt: sample.materialWt,
+    //         materialPcs: sample.materialPcs,
+    //         materialShape: sample.materialShape,
+    //         materialQuality: sample.materialQuality,
+    //         materialColor: sample.materialColor,
+    //         materialSize: sample.materialSize,
+    //         reason: "no-bag-in-locker",
+    //       });
+    //     }
+    //   }
+    // });
+
+    // const combinedUnavailable = [
+    //   ...filteredUnavailable,
+    //   ...droppedByLockerFilter,
+    // ];
+
+    // actions.setRequiredBags(filteredAvailable);
+    // setUnavailableBags(combinedUnavailable);
+    // inputRef.current?.focus();
   }, []);
 
-  // ── Clear highlight after 2s ──
+  useEffect(() => {
+    if (scanMessage) {
+      clearTimeout(scanMessageTimerRef.current);
+      scanMessageTimerRef.current = setTimeout(
+        () => setScanMessage(null),
+        3500,
+      );
+    }
+    return () => clearTimeout(scanMessageTimerRef.current);
+  }, [scanMessage]);
+
+  const checkBagOwnership = (rfbagValue) => {
+    const allBags = getSessionData("allBagListData");
+    const bag = allBags.find((b) => b.rfbag === rfbagValue);
+    if (!bag || bag == undefined) {
+      return { ok: false, bag: null };
+    }
+
+    if (bag.iscompany === 1 || bag.iscompany === undefined) {
+      return { ok: true, bag };
+    }
+
+    const belongsToJobCustomer = alljobdataRef.current.some(
+      (job) => job.ccode == bag.istoreCust_Customercode,
+    );
+
+    return { ok: belongsToJobCustomer, bag };
+  };
+
   useEffect(() => {
     if (lastScanned || lastOtherScanned) {
       clearTimeout(highlightTimerRef.current);
@@ -193,44 +377,85 @@ const BagScanning = () => {
     return () => clearTimeout(highlightTimerRef.current);
   }, [lastScanned, lastOtherScanned]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Scan handler
-  // ─────────────────────────────────────────────────────────────
-  const handleScan = () => {
-    const val = scanValue.trim();
+  const handleScan = (scannedBag) => {
+    const val = scannedBag ?? scanValue.trim();
     if (!val) return;
 
-    // Is it a required bag?
     const bag = state.requiredBags.find((b) => b.rfbag === val || b.id === val);
-
     if (bag) {
-      // Already scanned? ignore
       if (!state.scannedBags.find((b) => b.id === bag.id)) {
         actions.addScannedBag(bag);
         setLastScanned(bag.id);
         setLastOtherScanned(null);
+        setScanMessage(null);
 
-        // Pre-fill from bag's remwt / rempcs — DISABLED (read-only)
         setBagData((prev) => ({
           ...prev,
           [bag.id]: {
             pcs: bag.rempcs !== undefined ? String(bag.rempcs) : '',
-            cwt: bag.remwt  !== undefined ? String(bag.remwt)  : '',
+            cwt: bag.remwt !== undefined ? String(bag.remwt) : '',
           },
         }));
 
-        // Animate list
         setListVisible(false);
         clearTimeout(listTimerRef.current);
         listTimerRef.current = setTimeout(() => setListVisible(true), 600);
       }
     } else {
-      // Not in required list → Other Bags
-      if (!otherBags.find((b) => b.id === val)) {
-        setOtherBags((prev) => [
-          ...prev,
-          { id: val, label: val, type: 'unknown', color: '#ef4444' },
-        ]);
+      const ownership = checkBagOwnership(val);
+
+      if (ownership && ownership.ok === false) {
+        const text = ownership.bag
+          ? `Bag ${val} belongs to ${ownership.bag.istoreCust_CustName || 'another customer'} — not allowed for this job.`
+          : `Bag ${val} not found — not allowed for this job.`;
+
+        setScanMessage({ type: 'error', text });
+        setScanValue('');
+        inputRef.current?.focus();
+        return;
+      }
+
+      // ── Locker restriction: only allow other bags from the currently
+      // selected locker (mirrors SingleSingleEntry's assign-bag check). ──
+      if (ownership?.bag) {
+        const bagLockerName = (ownership.bag.LockerName || '').replace(/\s/g, '');
+        const selectedLockerName = (state.locker?.name || '').replace(/\s/g, '');
+        if (bagLockerName && selectedLockerName && bagLockerName !== selectedLockerName) {
+          setScanMessage({
+            type: 'error',
+            text: `Bag ${val} belongs to locker "${ownership.bag.LockerName}" — not allowed for selected locker "${state.locker?.name}".`,
+          });
+          setScanValue('');
+          inputRef.current?.focus();
+          return;
+        }
+      }
+
+      if (!state.otherBags.find((b) => b.id === val)) {
+        const foundBag = ownership?.bag;
+        actions.addOtherBag(
+          foundBag
+            ? {
+              id: val,
+              rfbag: foundBag.rfbag,
+              itemid: foundBag.itemid,
+              type: getItemLabel(foundBag.itemid),
+              color: getItemColor(foundBag.itemid),
+              shape: foundBag.shape,
+              quality: foundBag.Quality,
+              size: foundBag.Size || foundBag.customesize || "",
+              color_name: foundBag.color,
+              findingtypename: foundBag.findingtypename || "",
+              findingAccessories: foundBag.findingAccessories || "",
+              remwt: foundBag.remwt,
+              rempcs: foundBag.rempcs,
+              LockerName: foundBag.LockerName,
+              iscompany: foundBag.iscompany,
+              istoreCust_CustName: foundBag.istoreCust_CustName,
+              istoreCust_Customercode: foundBag.istoreCust_Customercode, // ← add this
+            }
+            : { id: val, label: val, type: "unknown", color: "#ef4444" }
+        );
         setLastOtherScanned(val);
         setLastScanned(null);
       }
@@ -240,114 +465,356 @@ const BagScanning = () => {
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleScan();
+  // Un-scan a bag: remove it from the scanned list and drop its captured
+  // pcs/cwt data so the summary + progress update accordingly.
+  const handleRemoveScan = (bag) => {
+    actions.removeScannedBag(bag.id);
+    setBagData((prev) => {
+      const next = { ...prev };
+      delete next[bag.id];
+      return next;
+    });
+    if (lastScanned === bag.id) setLastScanned(null);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // Continue → save scannedBagData to sessionStorage
-  // ─────────────────────────────────────────────────────────────
-  const handleContinue = () => {
-    if (state.scannedBags.length === 0) return;
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleScan();
+  };
 
-    // Build enriched payload: bag info + user-entered (or pre-filled) pcs/cwt
+  const handleContinue = () => {
     const scannedBagData = state.scannedBags.map((bag) => ({
-      // bag identity & specs
-      rfbag:           bag.rfbag,
-      itemid:          bag.itemid,
-      type:            bag.type,
-      shape:           bag.shape,
-      quality:         bag.quality,
-      size:            bag.size,
-      color_name:      bag.color_name,
-      LockerName:      bag.LockerName,
-      iscompany:       bag.iscompany,
+      rfbag: bag.rfbag,
+      itemid: bag.itemid,
+      type: bag.type,
+      shape: bag.shape,
+      quality: bag.quality,
+      size: bag.size,
+      color_name: bag.color_name,
+      LockerName: bag.LockerName,
+      iscompany: bag.iscompany,
       istoreCust_CustName: bag.istoreCust_CustName,
       findingtypename: bag.findingtypename,
       findingAccessories: bag.findingAccessories,
-
-      // scanned quantities (from bagData state, pre-filled from remwt/rempcs)
-      scannedPcs: bagData[bag.id]?.pcs ?? '',
-      scannedCwt: bagData[bag.id]?.cwt ?? '',
-
-      // traceability back to job material line
-      qid:         bag.qid,
-      jid:         bag.jid,
+      scannedPcs: bagData[bag.id]?.pcs ?? "",
+      scannedCwt: bagData[bag.id]?.cwt ?? "",
+      qid: bag.qid,
+      jid: bag.jid,
       SerialJobNo: bag.SerialJobNo,
       QuotationNo: bag.QuotationNo,
-
-      // material spec the bag was matched against
-      materialWt:      bag.materialWt,
-      materialPcs:     bag.materialPcs,
-      materialShape:   bag.materialShape,
+      materialWt: bag.materialWt,
+      materialPcs: bag.materialPcs,
+      materialShape: bag.materialShape,
       materialQuality: bag.materialQuality,
-      materialColor:   bag.materialColor,
-      materialSize:    bag.materialSize,
+      materialColor: bag.materialColor,
+      materialSize: bag.materialSize,
     }));
 
-    sessionStorage.setItem('scannedBagData', JSON.stringify(scannedBagData));
-    navigate('/material-entry');
+    sessionStorage.setItem("scannedBagData", JSON.stringify(scannedBagData));
+    navigate("/material-entry");
   };
-  
+
   const isScanned = (bagId) => state.scannedBags.some((b) => b.id === bagId);
+
   const filteredBags = useMemo(() => {
-    return state.requiredBags.filter((bag) => {
-      if (bagFilter === 'all')      return true;
-      if (bagFilter === 'company')  return bag.iscompany === 1;
-      if (bagFilter === 'customer') return bag.iscompany === 0;
-      return true;
-    });
+    const order = { Diamond: 1, Colorstone: 2, Misc: 3, Finding: 4 };
+
+    return [...state.requiredBags]
+      .filter((bag) => {
+        if (bagFilter === "all") return true;
+        if (bagFilter === "company") return bag.iscompany === 1;
+        if (bagFilter === "customer") return bag.iscompany === 0;
+        return true;
+      })
+      .sort((a, b) => (order[a.type] || 999) - (order[b.type] || 999));
   }, [state.requiredBags, bagFilter]);
 
-  const scannedCount  = state.scannedBags.length;
-  const requiredCount = state.requiredBags.length;
-  const missingCount  = requiredCount - scannedCount;
-  const extraCount    = otherBags.length;
-  const progressPct   = requiredCount > 0 ? (scannedCount / requiredCount) * 100 : 0;
+  // One card per material LINE (qid) — not per shape/quality/color/size
+  // combo — so two distinct material rows that happen to share those
+  // attributes (e.g. two finding lines, same gold/18K/yellow spec, but
+  // different findingtype) still render as two separate cards.
+  const groupedAvailable = useMemo(() => {
+    const order = { Diamond: 1, Colorstone: 2, Misc: 3, Finding: 4 };
+    const map = new Map();
+
+    filteredBags.forEach((bag) => {
+      const key = bag.qid;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          itemid: bag.itemid,
+          type: bag.type,
+          color: bag.color,
+          shape: bag.materialShape,
+          quality: bag.materialQuality,
+          color_name: bag.materialColor,
+          size: bag.materialSize,
+          findingtypename: bag.findingtypename,
+          findingAccessories: bag.findingAccessories,
+          jobs: new Set(),
+          qids: new Set(),
+          materialPcs: 0,
+          materialWt: 0,
+          bagIds: new Set(),
+          bags: [],
+        });
+      }
+
+      const group = map.get(key);
+
+      if (!group.qids.has(bag.qid)) {
+        group.qids.add(bag.qid);
+        group.materialPcs += Number(bag.materialPcs) || 0;
+        group.materialWt += Number(bag.materialWt) || 0;
+      }
+      if (bag.SerialJobNo) group.jobs.add(bag.SerialJobNo);
+
+      if (!group.bagIds.has(bag.id)) {
+        group.bagIds.add(bag.id);
+        group.bags.push(bag);
+      }
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => (order[a.type] || 999) - (order[b.type] || 999),
+    );
+  }, [filteredBags]);
+
+  // groupedAvailable.length (one per matched material line) +
+  // unavailableBags.length (one per unmatched material line) now
+  // always equals the total scannedJobMaterialData lines for the
+  // job — 10 for job 1/8477 (2 diamond + 2 colorstone + 2 misc + 4
+  // finding), instead of dropping the unmatched ones silently.
+  const combinedMaterials = useMemo(() => {
+    const order = { Diamond: 1, Colorstone: 2, Misc: 3, Finding: 4 };
+    return [...groupedAvailable, ...unavailableBags].sort(
+      (a, b) => (order[a.type] || 999) - (order[b.type] || 999),
+    );
+  }, [groupedAvailable, unavailableBags]);
+
+  const scannedCount = state.scannedBags.length;
+  const extraCount = state.otherBags.length;
+  // Progress compares SCANNED BAGS against the total number of physical bags
+  // that exist to be scanned — NOT the material-line count (which produced the
+  // nonsensical "6/4"). Count unique required bags so the denominator is the
+  // real number of scannable bags.
+  const totalBags = new Set(state.requiredBags.map((b) => b.id)).size;
+  const progressPct =
+    totalBags > 0 ? Math.min((scannedCount / totalBags) * 100, 100) : 0;
+
+  const renderAvailableMaterialCard = (group) => {
+    const Icon = getItemIcon(group.itemid);
+    const scannedInGroup = group.bags.filter((b) => isScanned(b.id));
+    const groupJustScanned = group.bags.some((b) => lastScanned === b.id);
+
+    return (
+      <div
+        key={`avail-${group.key}`}
+        className={[
+          "bag-scanning__bag-card",
+          "bag-scanning__bag-card--material",
+          scannedInGroup.length === group.bags.length
+            ? "bag-scanning__bag-card--scanned"
+            : "",
+          groupJustScanned ? "bag-scanning__bag-card--just-scanned" : "",
+        ].join(" ")}
+      >
+        <div className="bag-scanning__bag-info">
+          <span className="bag-scanning__bag-type">
+            {group.type} · {group.shape} · {group.quality} · {group.color_name} · {group.size}
+          </span>
+          <span className="bag-scanning__bag-meta">
+            {group.findingAccessories ? ` ${group.findingAccessories}` : ""} {group.findingtypename ? ` · ${group.findingtypename}` : ""}
+          </span>
+          <span className="bag-scanning__bag-meta">
+            Job{group.jobs.size > 1 ? "s" : ""}:{" "}
+            {Array.from(group.jobs).join(", ")} · Req: {group.materialPcs} pcs /{" "}
+            {group.materialWt} ct
+          </span>
+
+          <span className="bag-scanning__bag-chip-list">
+            RF:&nbsp;
+            {group.bags.map((bag, idx) => {
+              const scanned = isScanned(bag.id);
+              const justScanned = lastScanned === bag.id;
+              return (
+                <React.Fragment key={bag.id}>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className={[
+                      "bag-scanning__bag-chip",
+                      scanned ? "bag-scanning__bag-chip--scanned" : "",
+                      justScanned ? "bag-scanning__bag-chip--just-scanned" : "",
+                    ].join(" ")}
+                    title={[bag.LockerName, bag.istoreCust_CustName]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    onClick={() => { if (!scanned) handleScan(bag.rfbag); }}
+                    onKeyDown={(e) => {
+                      if ((e.key === "Enter" || e.key === " ") && !scanned)
+                        handleScan(bag.rfbag);
+                    }}
+                  >
+                    {scanned && <CheckCircle2 size={11} />} {bag.rfbag}
+                    {scanned && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="bag-scanning__bag-chip-remove"
+                        title="Remove scan"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveScan(bag); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.stopPropagation();
+                            handleRemoveScan(bag);
+                          }
+                        }}
+                      >
+                        <X size={11} />
+                      </span>
+                    )}
+                  </span>
+                </React.Fragment>
+              );
+            })}
+          </span>
+
+          {scannedInGroup.length > 0 && (
+            <div className="bag-scanning__bag-inputs-group">
+              {scannedInGroup.map((bag) => (
+                <div className="bag-scanning__bag-inputs" key={bag.id}>
+                  <span className="bag-scanning__bag-inputs-tag">
+                    {bag.rfbag}
+                  </span>
+                  <div className="bag-scanning__bag-field-wrap">
+                    <label>Rem. PCS</label>
+                    <input
+                      type="number"
+                      className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
+                      value={bagData[bag.id]?.pcs ?? ""}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                  <div className="bag-scanning__bag-field-wrap">
+                    <label>Rem. Wt (ct)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
+                      value={bagData[bag.id]?.cwt ?? ""}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bag-scanning__bag-status">
+          <span className="bag-scanning__bag-badge bag-scanning__bag-badge--available">
+            Available ({group.bags.length})
+          </span>
+          <span className="bag-scanning__bag-badge bag-scanning__bag-badge--scan-progress">
+            {scannedInGroup.length}/{group.bags.length} Scanned
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUnavailableMaterialCard = (mat) => {
+    const Icon = getItemIcon(mat.itemid);
+    return (
+      <div
+        key={`unavail-${mat.id}`}
+        className="bag-scanning__bag-card bag-scanning__bag-card--unavailable"
+      >
+        <div className="bag-scanning__bag-info">
+          <span className="bag-scanning__bag-id">
+            No bag found
+          </span>
+          <span className="bag-scanning__bag-type">
+            {mat.type} · {mat.shape} · {mat.quality} · {mat.color_name} · {mat.size}
+          </span>
+          <span className="bag-scanning__bag-meta">
+            {mat.findingtypename ? ` · ${mat.findingtypename}` : ""}
+          </span>
+          <span className="bag-scanning__bag-meta">
+            Job: {mat.SerialJobNo} · Req: {mat.materialPcs} pcs /{" "}
+            {mat.materialWt} ct
+          </span>
+        </div>
+
+        <div className="bag-scanning__bag-status">
+          <span className="bag-scanning__bag-badge bag-scanning__bag-badge--not-available">
+            Not Available
+          </span>
+          {/* <span className="bag-scanning__bag-badge bag-scanning__bag-badge--not-available">
+            {mat.reason === "no-bag-in-locker"
+              ? "Wrong Locker"
+              : "Not Available"}
+          </span> */}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="bag-scanning page-enter">
-
-      {/* ─── Header ─── */}
       <div className="bag-scanning__header">
         <div className="bag-scanning__step-badge">Step 5</div>
         <h1 className="bag-scanning__title">Bag Scanning</h1>
-        <p className="bag-scanning__desc">Scan the required bags for the scanned jobs</p>
+        <p className="bag-scanning__desc">
+          Scan the available bags for the scanned jobs
+        </p>
       </div>
 
       <div className="bag-scanning__layout">
         <div className="bag-scanning__left">
-
-          {/* Jobs in scope chips */}
           {state.scannedJobs.length > 0 && (
             <div className="bag-scanning__jobs-context">
-              <span className="bag-scanning__jobs-context-label">Jobs in scope:</span>
+              <span className="bag-scanning__jobs-context-label">
+                Jobs:
+              </span>
               <div className="bag-scanning__jobs-chips">
                 {state.scannedJobs.map((j) => (
-                  <span key={j.id} className="bag-scanning__job-chip">{j.id}</span>
+                  <span key={j.id} className="bag-scanning__job-chip">
+                    {j.id}
+                  </span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Summary card */}
           <div className="bag-scanning__info-card">
             <h3>Scan Summary</h3>
             <div className="bag-scanning__summary-grid">
               <div className="bag-scanning__summary-item bag-scanning__summary-item--scanned">
-                <span className="bag-scanning__summary-value">{scannedCount}</span>
+                <span className="bag-scanning__summary-value">
+                  {scannedCount}
+                </span>
                 <span className="bag-scanning__summary-label">Scanned</span>
               </div>
               <div className="bag-scanning__summary-item bag-scanning__summary-item--required">
-                <span className="bag-scanning__summary-value">{requiredCount}</span>
-                <span className="bag-scanning__summary-label">Required</span>
+                <span className="bag-scanning__summary-value">
+                  {combinedMaterials.length}
+                </span>
+                <span className="bag-scanning__summary-label">AllMaterial</span>
               </div>
               <div className="bag-scanning__summary-item bag-scanning__summary-item--missing">
-                <span className="bag-scanning__summary-value">{missingCount}</span>
+                <span className="bag-scanning__summary-value">
+                  {unavailableBags.length}
+                </span>
                 <span className="bag-scanning__summary-label">Missing</span>
               </div>
               <div className="bag-scanning__summary-item bag-scanning__summary-item--extra">
-                <span className="bag-scanning__summary-value">{extraCount}</span>
+                <span className="bag-scanning__summary-value">
+                  {extraCount}
+                </span>
                 <span className="bag-scanning__summary-label">Extra</span>
               </div>
             </div>
@@ -358,15 +825,16 @@ const BagScanning = () => {
               />
             </div>
             <div className="bag-scanning__progress-label">
-              {scannedCount}/{requiredCount} bags scanned
+              {scannedCount}/{totalBags} bags scanned
             </div>
           </div>
 
-          {/* Scan input */}
           <div className="bag-scanning__scan-area">
             <div className="bag-scanning__scan-frame">
               <div className="bag-scanning__scan-animation">
-                <div className="bag-scanning__scan-box"><Package size={28} /></div>
+                <div className="bag-scanning__scan-box">
+                  <Package size={28} />
+                </div>
                 <div className="bag-scanning__scan-pulse"></div>
                 <div className="bag-scanning__scan-pulse bag-scanning__scan-pulse--delayed"></div>
               </div>
@@ -393,6 +861,15 @@ const BagScanning = () => {
                 Scan
               </Button>
             </div>
+
+            {scanMessage && (
+              <div
+                className={`bag-scanning__scan-message bag-scanning__scan-message--${scanMessage.type}`}
+              >
+                <AlertTriangle size={14} />
+                <span>{scanMessage.text}</span>
+              </div>
+            )}
           </div>
 
           {state.requiredBags.length === 0 && (
@@ -404,151 +881,129 @@ const BagScanning = () => {
           )}
         </div>
 
-        {/* ── RIGHT — Required Bags + Other Bags ── */}
         <div className="bag-scanning__right">
-
           <div className="bag-scanning__section">
-            <div className="bag-scanning__bags-header">
-              <h3>Required Bags</h3>
-              <span className="bag-scanning__bags-count">{scannedCount}/{requiredCount}</span>
-            </div>
-
-            {/* Filter pills: All / Company / Customer */}
             <div className="bag-scanning__filter-pills">
-              {['all', 'company', 'customer'].map((f) => (
+              {["all", "available", "unavailable"].map((v) => (
                 <button
-                  key={f}
+                  key={v}
                   className={[
-                    'bag-scanning__filter-pill',
-                    bagFilter === f ? 'bag-scanning__filter-pill--active' : '',
-                  ].join(' ')}
-                  onClick={() => setBagFilter(f)}
+                    "bag-scanning__filter-pill",
+                    availabilityView === v
+                      ? "bag-scanning__filter-pill--active"
+                      : "",
+                  ].join(" ")}
+                  onClick={() => setAvailabilityView(v)}
                 >
-                  {f === 'all' ? 'All' : f === 'company' ? 'Company' : 'Customer'}
+                  {v === "all"
+                    ? `All Material (${combinedMaterials.length})`
+                    : v === "available"
+                      ? `Available (${groupedAvailable.length})`
+                      : `Not Available (${unavailableBags.length})`}
                 </button>
               ))}
             </div>
 
-            <div className={`bag-scanning__bags-list ${listVisible ? 'bag-scanning__bags-list--visible' : 'bag-scanning__bags-list--hidden'}`}>
-              {filteredBags.length === 0 ? (
+            <div className="bag-scanning__filter-pills">
+              {["all", "company", "customer"].map((f) => (
+                <button
+                  key={f}
+                  className={[
+                    "bag-scanning__filter-pill",
+                    bagFilter === f ? "bag-scanning__filter-pill--active" : "",
+                  ].join(" ")}
+                  onClick={() => setBagFilter(f)}
+                >
+                  {f === "all"
+                    ? "All"
+                    : f === "company"
+                      ? "Company"
+                      : "Customer"}
+                </button>
+              ))}
+            </div>
+
+            <div
+              className={`bag-scanning__bags-list ${listVisible ? "bag-scanning__bags-list--visible" : "bag-scanning__bags-list--hidden"}`}
+            >
+              {availabilityView === "unavailable" ? (
+                unavailableBags.length === 0 ? (
+                  <div className="bag-scanning__empty-list">
+                    <CheckCircle2 size={24} />
+                    <span>All required materials have matching bags.</span>
+                  </div>
+                ) : (
+                  unavailableBags.map(renderUnavailableMaterialCard)
+                )
+              ) : availabilityView === "all" ? (
+                combinedMaterials.length === 0 ? (
+                  <div className="bag-scanning__empty-list">
+                    <Package size={24} />
+                    <span>No materials found.</span>
+                  </div>
+                ) : (
+                  combinedMaterials.map((item) =>
+                    Array.isArray(item.bags)
+                      ? renderAvailableMaterialCard(item)
+                      : renderUnavailableMaterialCard(item),
+                  )
+                )
+              ) : groupedAvailable.length === 0 ? (
                 <div className="bag-scanning__empty-list">
                   <Package size={24} />
-                  <span>No bags for this filter.</span>
+                  <span>No bags available.</span>
                 </div>
               ) : (
-                filteredBags.map((bag) => {
-                  const scanned     = isScanned(bag.id);
-                  const justScanned = lastScanned === bag.id;
-                  const Icon        = getItemIcon(bag.itemid);
-
-                  return (
-                    <div
-                      key={bag.id}
-                      className={[
-                        'bag-scanning__bag-card',
-                        scanned     ? 'bag-scanning__bag-card--scanned'      : '',
-                        justScanned ? 'bag-scanning__bag-card--just-scanned' : '',
-                      ].join(' ')}
-                    >
-                      {/* Icon */}
-                      <div
-                        className="bag-scanning__bag-icon"
-                        style={{ '--bag-color': bag.color }}
-                      >
-                        {scanned ? <CheckCircle2 size={20} /> : <Icon size={20} />}
-                      </div>
-
-                      {/* Info */}
-                      <div className="bag-scanning__bag-info">
-                        <span className="bag-scanning__bag-id">{bag.rfbag}</span>
-                        <span className="bag-scanning__bag-type">
-                          {bag.type} · {bag.shape} · {bag.quality} · {bag.size}
-                        </span>
-                        <span className="bag-scanning__bag-meta">
-                          Color: {bag.color_name}
-                          {bag.LockerName ? ` · ${bag.LockerName}` : ''}
-                          {bag.istoreCust_CustName ? ` · ${bag.istoreCust_CustName}` : ''}
-                        </span>
-                        {/* Material line it was matched from */}
-                        <span className="bag-scanning__bag-meta">
-                          Job: {bag.SerialJobNo} · Req: {bag.materialPcs} pcs / {bag.materialWt} ct
-                        </span>
-                      </div>
-
-                      {/* Status badge */}
-                      <div className="bag-scanning__bag-status">
-                        {scanned ? (
-                          <span className="bag-scanning__bag-badge bag-scanning__bag-badge--scanned">
-                            Scanned
-                          </span>
-                        ) : (
-                          <span className="bag-scanning__bag-badge bag-scanning__bag-badge--pending">
-                            Pending
-                          </span>
-                        )}
-                      </div>
-
-                      {/* ── PCS / CWT inputs — visible after scan, always DISABLED ── */}
-                      {scanned && (
-                        <div className="bag-scanning__bag-inputs">
-                          <div className="bag-scanning__bag-field-wrap">
-                            <label>Rem. PCS</label>
-                            <input
-                              type="number"
-                              className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
-                              value={bagData[bag.id]?.pcs ?? ''}
-                              disabled
-                              readOnly
-                            />
-                          </div>
-                          <div className="bag-scanning__bag-field-wrap">
-                            <label>Rem. Wt (ct)</label>
-                            <input
-                              type="number"
-                              step="0.001"
-                              className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
-                              value={bagData[bag.id]?.cwt ?? ''}
-                              disabled
-                              readOnly
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                groupedAvailable.map(renderAvailableMaterialCard)
               )}
             </div>
           </div>
-
-          {/* Other / Extra Bags */}
-          {otherBags.length > 0 && (
+          {state.otherBags.length > 0 && (
             <div className="bag-scanning__section bag-scanning__section--others">
               <div className="bag-scanning__bags-header bag-scanning__bags-header--others">
-                <h3><AlertTriangle size={16} />&nbsp;Other Bags</h3>
+                <h3>
+                  <AlertTriangle size={16} />
+                  &nbsp;Other Bags
+                </h3>
                 <span className="bag-scanning__bags-count bag-scanning__bags-count--others">
-                  {otherBags.length}
+                  {state.otherBags.length}
                 </span>
               </div>
               <div className="bag-scanning__bags-list">
-                {otherBags.map((bag) => {
+                {state?.otherBags.map((bag) => {
                   const justScanned = lastOtherScanned === bag.id;
+                  const hasDetails = !!bag.shape; // only true when we matched a real bag record
+                  const Icon = hasDetails ? getItemIcon(bag.itemid) : PackagePlus;
+
                   return (
                     <div
                       key={bag.id}
                       className={[
-                        'bag-scanning__bag-card',
-                        'bag-scanning__bag-card--other',
-                        justScanned ? 'bag-scanning__bag-card--just-scanned-other' : '',
-                      ].join(' ')}
+                        "bag-scanning__bag-card",
+                        "bag-scanning__bag-card--other",
+                        justScanned ? "bag-scanning__bag-card--just-scanned-other" : "",
+                      ].join(" ")}
                     >
-                      <div className="bag-scanning__bag-icon bag-scanning__bag-icon--other">
-                        <PackagePlus size={20} />
-                      </div>
                       <div className="bag-scanning__bag-info">
-                        <span className="bag-scanning__bag-id">{bag.id}</span>
-                        <span className="bag-scanning__bag-type">Not in required list</span>
+                        <span className="bag-scanning__bag-id">{bag.rfbag || bag.id}</span>
+
+                        {hasDetails ? (
+                          <>
+                            <span className="bag-scanning__bag-type">
+                              {bag.type} · {bag.shape} · {bag.quality} · {bag.color_name} · {bag.size}
+                              {bag.findingtypename ? ` · ${bag.findingtypename}` : ""}
+                            </span>
+                            <span className="bag-scanning__bag-meta">
+                              Rem: {bag.rempcs ?? "-"} pcs / {bag.remwt ?? "-"} ct
+                              {bag.LockerName ? ` · ${bag.LockerName}` : ""}
+                              {bag.istoreCust_CustName ? ` · ${bag.istoreCust_CustName}` : ""}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="bag-scanning__bag-type">Not in required list</span>
+                        )}
                       </div>
+
                       <div className="bag-scanning__bag-status">
                         <span className="bag-scanning__bag-badge bag-scanning__bag-badge--extra">
                           Extra
@@ -563,11 +1018,10 @@ const BagScanning = () => {
         </div>
       </div>
 
-      {/* ─── Actions ─── */}
       <div className="bag-scanning__actions">
         <Button
           variant="outlined"
-          onClick={() => navigate('/scan-jobs')}
+          onClick={() => navigate("/scan-jobs")}
           startIcon={<ArrowLeft size={18} />}
           className="bag-scanning__back-btn"
         >
@@ -578,7 +1032,6 @@ const BagScanning = () => {
           color="primary"
           size="large"
           onClick={handleContinue}
-          disabled={state.scannedBags.length === 0}
           endIcon={<ArrowRight size={20} />}
           className="bag-scanning__continue-btn"
         >

@@ -1,4 +1,5 @@
 // E0010
+// 1/7598      e0008      0000003342
 
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -17,17 +18,20 @@ import './styles/global.scss';
 import { getClientIpAddress } from './Utils/globalFunc';
 import axios from 'axios';
 import { CallApi } from './API/CallApi/CallApi';
+import { refreshSessionData } from './Utils/refreshSessionData';
+import { useSetRecoilState } from 'recoil';
+import { isLoadingAtom } from './recoil/atom';
 
 function App() {
 
   const [tokenMissing, setTokenMissing] = useState(false);
   const searchParams = new URLSearchParams(window.location.search);
   const newToken = searchParams.get("Token");
+  const setIsLoading = useSetRecoilState(isLoadingAtom);
 
   useEffect(() => {
     getClientIpAddress();
   }, []);
-
 
   // useEffect(() => {
   //   sessionStorage.setItem("5F383721-FC33-F111-B3AE-F875A496BA9D", JSON?.stringify({
@@ -55,8 +59,9 @@ function App() {
         setTokenMissing(true);
         return;
       }
-
+      
       try {
+        setIsLoading(true);
         let parsedData;
         const fromSession = sessionStorage.getItem(newToken);
         const fromLocal = fromSession ? null : localStorage.getItem(newToken);
@@ -104,7 +109,6 @@ function App() {
         }
 
         const AllData = parsedData;
-        console.log('AllData: ', AllData);
         const clientIpAddress = sessionStorage.getItem("clientIpAddress");
 
         const body = {
@@ -118,96 +122,18 @@ function App() {
           f: "BulkEngage (get employee)",
         };
 
-        const bodyMulti = {
-          con: JSON.stringify({
-            id: "",
-            mode: "getlocker",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({}),
-          f: "getlocker (get getlocker data)",
-        };
-
-        const bodyJobList = {
-          con: JSON.stringify({
-            id: "",
-            mode: "joblist",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({}),
-          f: "joblist (get joblist data)",
-        };
-
-        const bodyJobMaterial = {
-          con: JSON.stringify({
-            id: "",
-            mode: "order_joblist",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({}),
-          f: "joblist (get joblist data)",
-        };
-
-        const bodyMaterialList = {
-          con: JSON.stringify({
-            id: "",
-            mode: "materiallist",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({}),
-          f: "materiallist (get materiallist data)",
-        };
-
-        const bodyEmployeeLocker = {
-          con: JSON.stringify({
-            id: "",
-            mode: "getemplocker",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({}),
-          f: "materiallist (get materiallist data)",
-        };
-
-        const responseLocker = await CallApi(bodyMulti);
+        // Status check: call employee API first to catch 400
         const response = await CallApi(body);
-        const responseJobList = await CallApi(bodyJobList);
-        const responseBagList = await CallApi(bodyMaterialList);
-        const responseEmployeeLocker = await CallApi(bodyEmployeeLocker);
-        const responseJobMaterial = await CallApi(bodyJobMaterial);
-        
         if (response?.Status === "400") {
           setTokenMissing(true);
           return;
         }
-
-        if (responseLocker?.rd) {
-          sessionStorage.setItem("allLockerData", JSON.stringify(responseLocker?.rd))
-        }
-
         if (response?.rd) {
-          sessionStorage.setItem("allEmployeeData", JSON.stringify(response?.rd))
+          sessionStorage.setItem("allEmployeeData", JSON.stringify(response.rd));
         }
 
-        if (responseJobList?.rd) {
-          sessionStorage.setItem("allJobListData", JSON.stringify(responseJobList?.rd))
-        }
-
-        if (responseBagList?.rd) {
-          sessionStorage.setItem("allBagListData", JSON.stringify(responseBagList?.rd))
-        }
-
-         if (responseEmployeeLocker?.rd) {
-          sessionStorage.setItem("allEmployeeLockerData", JSON.stringify(responseEmployeeLocker?.rd))
-        }
-
-         if (responseJobMaterial?.rd) {
-          sessionStorage.setItem("allJobMaterialData", JSON.stringify(responseJobMaterial?.rd))
-        }
+        // Refresh all remaining master data in parallel
+        await refreshSessionData(setIsLoading);
       } catch (err) {
         console.error("Error:", err);
         setTokenMissing(true);
@@ -216,9 +142,6 @@ function App() {
 
     initializeAndFetchReport();
   }, [newToken]);
-
-
-
 
   return (
     <ThemeProvider>
@@ -243,3 +166,6 @@ function App() {
 }
 
 export default App;
+
+
+// 1/9468

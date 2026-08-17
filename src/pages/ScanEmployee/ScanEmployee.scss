@@ -1,4 +1,4 @@
-@import '../../styles/variables';
+@import "../../styles/variables";
 
 .scan-employee {
   max-width: 720px;
@@ -53,6 +53,30 @@
     flex-shrink: 0;
   }
 
+  &__theme-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--header-text) !important;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
   &__scanner-frame {
     width: 120px;
     height: 120px;
@@ -85,7 +109,12 @@
     left: 10%;
     width: 80%;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--primary),
+      transparent
+    );
     animation: scanLine 1.5s ease-in-out infinite;
   }
 
@@ -222,7 +251,7 @@
     gap: 4px;
     font-size: 13px;
     color: var(--text-secondary);
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
   }
 
   &__result-desig {
@@ -240,13 +269,39 @@
     font-weight: 600 !important;
     font-size: 15px !important;
     border-radius: $border-radius-sm !important;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-light)
+    ) !important;
     color: var(--btn-primary-text) !important;
   }
 }
 
 @keyframes scanLine {
-  0% { top: 10%; }
-  50% { top: 85%; }
-  100% { top: 10%; }
+  0% {
+    top: 10%;
+  }
+  50% {
+    top: 85%;
+  }
+  100% {
+    top: 10%;
+  }
+}
+
+@media (max-width: 1800px) {
+  .homebtn1 {
+    position: absolute !important;
+    right: -10% !important;
+  }
+
+  .homebtn2 {
+    position: absolute !important;
+    right: -28% !important;
+  }
+
+  .scan-employee{
+    padding: 0px !important;
+  }
 }
