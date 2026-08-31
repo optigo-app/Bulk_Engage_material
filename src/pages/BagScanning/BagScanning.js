@@ -12,6 +12,7 @@ import {
   Gem,
   Palette,
   Wrench,
+  Stone,
   X,
 } from "lucide-react";
 import Button from "@mui/material/Button";
@@ -28,7 +29,10 @@ const getSessionData = (key) => {
   }
 };
 
-const getItemLabel = (itemid) => {
+const isSolitaire = (m) => Number(m?.is_sol_gem) === 1;
+
+const getItemLabel = (itemid, isSol = false) => {
+  if (itemid === 3 && isSol) return "Diamond:S";
   switch (itemid) {
     case 3:
       return "Diamond";
@@ -43,7 +47,8 @@ const getItemLabel = (itemid) => {
   }
 };
 
-const getItemIcon = (itemid) => {
+const getItemIcon = (itemid, isSol = false) => {
+  if (itemid === 3 && isSol) return Stone;
   switch (itemid) {
     case 3:
       return Gem;
@@ -56,7 +61,8 @@ const getItemIcon = (itemid) => {
   }
 };
 
-const getItemColor = (itemid) => {
+const getItemColor = (itemid, isSol = false) => {
+  if (itemid === 3 && isSol) return "#6343f1";
   switch (itemid) {
     case 3:
       return "#e91e63";
@@ -77,8 +83,18 @@ const norm = (v) =>
 
 const matchBagsForItem = (jobMaterial, allBags) => {
   const jobSize = norm(jobMaterial.size || jobMaterial.customsize || "");
+  const jobIsSol = isSolitaire(jobMaterial);
   return allBags.filter((bag) => {
     const bagSize = norm(bag.Size || bag.customesize || "");
+    const bagIsSol = isSolitaire(bag);
+    // Solitaire must match solitaire, non-solitaire must match non-solitaire
+    if (jobIsSol !== bagIsSol) return false;
+    // For solitaire, also match by stone_uniqueno if available
+    if (jobIsSol) {
+      const jobUnique = norm(jobMaterial.stone_uniqueno || "");
+      const bagUnique = norm(bag.stone_uniqueno || "");
+      if (jobUnique && bagUnique && jobUnique !== bagUnique) return false;
+    }
     return (
       bag.itemid === jobMaterial.itemid &&
       norm(bag.shape) === norm(jobMaterial.shape) &&
@@ -116,6 +132,7 @@ const buildRequiredBags = () => {
 
   materialLines.forEach((material) => {
     const isFinding = material.itemid === 5;
+    const matIsSol = isSolitaire(material);
     const matchedBags = isFinding
       ? matchFindingBags(material, allBags)
       : matchBagsForItem(material, allBags);
@@ -124,8 +141,10 @@ const buildRequiredBags = () => {
       unavailable.push({
         id: `na-${material.qid}`,
         itemid: material.itemid,
-        type: getItemLabel(material.itemid),
-        color: getItemColor(material.itemid),
+        is_sol_gem: material.is_sol_gem || 0,
+        stone_uniqueno: material.stone_uniqueno || "",
+        type: getItemLabel(material.itemid, matIsSol),
+        color: getItemColor(material.itemid, matIsSol),
         shape: material.shape,
         quality: material.Quality,
         size: material.size || material.customsize || "",
@@ -149,12 +168,15 @@ const buildRequiredBags = () => {
     matchedBags.forEach((bag) => {
       const alreadyAdded = available.find((r) => r.id === bag.rfbag);
       if (!alreadyAdded) {
+        const bagIsSol = isSolitaire(bag);
         available.push({
           id: bag.rfbag,
           rfbag: bag.rfbag,
           itemid: bag.itemid,
-          type: getItemLabel(bag.itemid),
-          color: getItemColor(bag.itemid),
+          is_sol_gem: bag.is_sol_gem || 0,
+          stone_uniqueno: bag.stone_uniqueno || "",
+          type: getItemLabel(bag.itemid, bagIsSol),
+          color: getItemColor(bag.itemid, bagIsSol),
           shape: bag.shape,
           quality: bag.Quality,
           size: bag.Size || bag.customesize || "",
@@ -182,12 +204,15 @@ const buildRequiredBags = () => {
     });
   });
 
+  console.log('materialLines: ', materialLines);
+
   return { available, unavailable };
 };
 
 const BagScanning = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
+  console.log('state: ', state);
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState(null);
   const [lastOtherScanned, setLastOtherScanned] = useState(null);
@@ -202,6 +227,8 @@ const BagScanning = () => {
   const inputRef = useRef(null);
   const highlightTimerRef = useRef(null);
   const listTimerRef = useRef(null);
+  const backBtnRef = useRef(null);
+  const continueBtnRef = useRef(null);
 
 
   // Restore scanned-bag input values if returning from Material Entry
@@ -242,6 +269,7 @@ const BagScanning = () => {
     );
     alljobdataRef.current = alljobdata; // add this line
     const required = buildRequiredBags();
+    console.log('required: ', required);
     const filterByLockerAndType = (list) =>
       list
         .filter((bag) => {
@@ -266,6 +294,8 @@ const BagScanning = () => {
               return bag.type === "Misc";
             case "findings":
               return bag.type === "Finding";
+            case "solitore":
+              return bag.type === "Diamond:S";
             case "all":
             default:
               return true;
@@ -433,14 +463,17 @@ const BagScanning = () => {
 
       if (!state.otherBags.find((b) => b.id === val)) {
         const foundBag = ownership?.bag;
+        const foundIsSol = foundBag ? isSolitaire(foundBag) : false;
         actions.addOtherBag(
           foundBag
             ? {
               id: val,
               rfbag: foundBag.rfbag,
               itemid: foundBag.itemid,
-              type: getItemLabel(foundBag.itemid),
-              color: getItemColor(foundBag.itemid),
+              is_sol_gem: foundBag.is_sol_gem || 0,
+              stone_uniqueno: foundBag.stone_uniqueno || "",
+              type: getItemLabel(foundBag.itemid, foundIsSol),
+              color: getItemColor(foundBag.itemid, foundIsSol),
               shape: foundBag.shape,
               quality: foundBag.Quality,
               size: foundBag.Size || foundBag.customesize || "",
@@ -481,10 +514,35 @@ const BagScanning = () => {
     if (e.key === "Enter") handleScan();
   };
 
+  useEffect(() => {
+    const onTabKey = (e) => {
+      if (e.key !== "Tab") return;
+      e.preventDefault();
+      const focusOrder = [
+        inputRef.current,
+        backBtnRef.current,
+        continueBtnRef.current,
+      ].filter(Boolean);
+      const active = document.activeElement;
+      const currentIdx = focusOrder.indexOf(active);
+      if (e.shiftKey) {
+        const prevIdx = currentIdx <= 0 ? focusOrder.length - 1 : currentIdx - 1;
+        focusOrder[prevIdx]?.focus();
+      } else {
+        const nextIdx = currentIdx >= focusOrder.length - 1 ? 0 : currentIdx + 1;
+        focusOrder[nextIdx]?.focus();
+      }
+    };
+    document.addEventListener("keydown", onTabKey);
+    return () => document.removeEventListener("keydown", onTabKey);
+  }, []);
+
   const handleContinue = () => {
     const scannedBagData = state.scannedBags.map((bag) => ({
       rfbag: bag.rfbag,
       itemid: bag.itemid,
+      is_sol_gem: bag.is_sol_gem || 0,
+      stone_uniqueno: bag.stone_uniqueno || "",
       type: bag.type,
       shape: bag.shape,
       quality: bag.quality,
@@ -516,7 +574,7 @@ const BagScanning = () => {
   const isScanned = (bagId) => state.scannedBags.some((b) => b.id === bagId);
 
   const filteredBags = useMemo(() => {
-    const order = { Diamond: 1, Colorstone: 2, Misc: 3, Finding: 4 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, Misc: 4, Finding: 5 };
 
     return [...state.requiredBags]
       .filter((bag) => {
@@ -528,12 +586,14 @@ const BagScanning = () => {
       .sort((a, b) => (order[a.type] || 999) - (order[b.type] || 999));
   }, [state.requiredBags, bagFilter]);
 
+    console.log('filteredBags: ', filteredBags);
+
   // One card per material LINE (qid) — not per shape/quality/color/size
   // combo — so two distinct material rows that happen to share those
   // attributes (e.g. two finding lines, same gold/18K/yellow spec, but
   // different findingtype) still render as two separate cards.
   const groupedAvailable = useMemo(() => {
-    const order = { Diamond: 1, Colorstone: 2, Misc: 3, Finding: 4 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, Misc: 4, Finding: 5 };
     const map = new Map();
 
     filteredBags.forEach((bag) => {
@@ -551,6 +611,7 @@ const BagScanning = () => {
           size: bag.materialSize,
           findingtypename: bag.findingtypename,
           findingAccessories: bag.findingAccessories,
+          is_sol_gem: bag.is_sol_gem,
           jobs: new Set(),
           qids: new Set(),
           materialPcs: 0,
@@ -586,11 +647,13 @@ const BagScanning = () => {
   // job — 10 for job 1/8477 (2 diamond + 2 colorstone + 2 misc + 4
   // finding), instead of dropping the unmatched ones silently.
   const combinedMaterials = useMemo(() => {
-    const order = { Diamond: 1, Colorstone: 2, Misc: 3, Finding: 4 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, Misc: 4, Finding: 5 };
     return [...groupedAvailable, ...unavailableBags].sort(
       (a, b) => (order[a.type] || 999) - (order[b.type] || 999),
     );
   }, [groupedAvailable, unavailableBags]);
+
+  console.log('combinedMaterials: ', combinedMaterials);
 
   const scannedCount = state.scannedBags.length;
   const extraCount = state.otherBags.length;
@@ -603,7 +666,7 @@ const BagScanning = () => {
     totalBags > 0 ? Math.min((scannedCount / totalBags) * 100, 100) : 0;
 
   const renderAvailableMaterialCard = (group) => {
-    const Icon = getItemIcon(group.itemid);
+    const Icon = getItemIcon(group.itemid, isSolitaire(group));
     const scannedInGroup = group.bags.filter((b) => isScanned(b.id));
     const groupJustScanned = group.bags.some((b) => lastScanned === b.id);
 
@@ -629,11 +692,11 @@ const BagScanning = () => {
           <span className="bag-scanning__bag-meta">
             Job{group.jobs.size > 1 ? "s" : ""}:{" "}
             {Array.from(group.jobs).join(", ")} · Req: {group.materialPcs} pcs /{" "}
-            {group.materialWt} ct
+            {group.materialWt} {group.type == "Misc" || group.type == "Finding" ? "gms" : 'ctw'}
           </span>
 
           <span className="bag-scanning__bag-chip-list">
-            RF:&nbsp;
+            RM:&nbsp;
             {group.bags.map((bag, idx) => {
               const scanned = isScanned(bag.id);
               const justScanned = lastScanned === bag.id;
@@ -698,7 +761,7 @@ const BagScanning = () => {
                     />
                   </div>
                   <div className="bag-scanning__bag-field-wrap">
-                    <label>Rem. Wt (ct)</label>
+                    <label>Rem. Wt (ctw)</label>
                     <input
                       type="number"
                       step="0.001"
@@ -727,7 +790,7 @@ const BagScanning = () => {
   };
 
   const renderUnavailableMaterialCard = (mat) => {
-    const Icon = getItemIcon(mat.itemid);
+    const Icon = getItemIcon(mat.itemid, isSolitaire(mat));
     return (
       <div
         key={`unavail-${mat.id}`}
@@ -745,7 +808,7 @@ const BagScanning = () => {
           </span>
           <span className="bag-scanning__bag-meta">
             Job: {mat.SerialJobNo} · Req: {mat.materialPcs} pcs /{" "}
-            {mat.materialWt} ct
+            {mat.materialWt} ctw
           </span>
         </div>
 
@@ -973,7 +1036,7 @@ const BagScanning = () => {
                 {state?.otherBags.map((bag) => {
                   const justScanned = lastOtherScanned === bag.id;
                   const hasDetails = !!bag.shape; // only true when we matched a real bag record
-                  const Icon = hasDetails ? getItemIcon(bag.itemid) : PackagePlus;
+                  const Icon = hasDetails ? getItemIcon(bag.itemid, isSolitaire(bag)) : PackagePlus;
 
                   return (
                     <div
@@ -994,7 +1057,7 @@ const BagScanning = () => {
                               {bag.findingtypename ? ` · ${bag.findingtypename}` : ""}
                             </span>
                             <span className="bag-scanning__bag-meta">
-                              Rem: {bag.rempcs ?? "-"} pcs / {bag.remwt ?? "-"} ct
+                              Rem: {bag.rempcs ?? "-"} pcs / {bag.remwt ?? "-"} ctw
                               {bag.LockerName ? ` · ${bag.LockerName}` : ""}
                               {bag.istoreCust_CustName ? ` · ${bag.istoreCust_CustName}` : ""}
                             </span>
@@ -1024,10 +1087,12 @@ const BagScanning = () => {
           onClick={() => navigate("/scan-jobs")}
           startIcon={<ArrowLeft size={18} />}
           className="bag-scanning__back-btn"
+          ref={continueBtnRef}
         >
           Back
         </Button>
         <Button
+          ref={backBtnRef}
           variant="contained"
           color="primary"
           size="large"

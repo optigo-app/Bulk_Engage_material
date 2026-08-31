@@ -35,6 +35,7 @@ const ACTIONS = {
   SET_COMPLETE: 'SET_COMPLETE',
   RESET: 'RESET',
   RESET_BAG_AND_MATERIAL: 'RESET_BAG_AND_MATERIAL',
+  SET_SCANNED_JOBS: 'SET_SCANNED_JOBS',
 };
 
 
@@ -65,6 +66,8 @@ function engageReducer(state, action) {
       return { ...state, scannedBags: [...state.scannedBags, action.payload] };
     case ACTIONS.REMOVE_SCANNED_BAG:
       return { ...state, scannedBags: state.scannedBags.filter(b => b.id !== action.payload) };
+    case ACTIONS.SET_SCANNED_JOBS:
+      return { ...state, scannedJobs: action.payload };
     case ACTIONS.UPDATE_JOB_ENTRY:
       return {
         ...state,
@@ -119,6 +122,7 @@ export function EngageProvider({ children }) {
     setComplete: (val) => dispatch({ type: ACTIONS.SET_COMPLETE, payload: val }),
     reset: () => dispatch({ type: ACTIONS.RESET }),
     resetBagAndMaterial: () => dispatch({ type: ACTIONS.RESET_BAG_AND_MATERIAL }),
+    setScannedJobs: (jobs) => dispatch({ type: ACTIONS.SET_SCANNED_JOBS, payload: jobs }),
   };
 
   return (

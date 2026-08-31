@@ -701,11 +701,9 @@ const SingleSingleEntry = ({ state, actions }) => {
 
   const handleSave = () => {
     if (!activeLine || !pcsValue || !wtValue || pcsError || wtError) return;
-    // Do not allow an entry with zero (or blank) weight — a 0 ct entry is
-    // meaningless and must never be added/saved.
     const wtNum = parseFloat(wtValue);
     if (!(wtNum > 0)) {
-      setWtError('Weight (ct) must be greater than 0');
+      setWtError('Weight (ctw) must be greater than 0');
       return;
     }
 
@@ -1005,7 +1003,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                               : null;
                             return eng ? (
                               <span className="sse-bag-row__engaged">
-                                Engaged: {eng.pcs} pcs / {eng.wt.toFixed(3)} ct
+                                Engaged: {eng.pcs} pcs / {eng.wt.toFixed(3)} ctw
                               </span>
                             ) : null;
                           })()}
@@ -1042,13 +1040,13 @@ const SingleSingleEntry = ({ state, actions }) => {
                           <div className="sse-bag-row__req-row">
                             <span className="sse-bag-row__req-label">Req</span>
                             <span className="sse-bag-row__req-val">{line.reqPcs} pcs /</span>
-                            <span className="sse-bag-row__req-val">{line.reqWt} ct</span>
+                            <span className="sse-bag-row__req-val">{line.reqWt} ctw</span>
                           </div>
                           {isSaved && (
                             <div className="sse-bag-row__entered-row">
                               <span className="sse-bag-row__entered-label">✓</span>
                               <span className="sse-bag-row__entered-val">{line.entry.pcs} pcs</span>
-                              <span className="sse-bag-row__entered-val">{line.entry.wt} ct</span>
+                              <span className="sse-bag-row__entered-val">{line.entry.wt} ctw</span>
                             </div>
                           )}
                         </div>
@@ -1116,7 +1114,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                       </span>
                       {activeLine && !activeLine.isUnusedBag && (
                         <span className="sse-assign-header__req">
-                          Req: {activeLine.reqPcs} pcs / {activeLine.reqWt} ct
+                          Req: {activeLine.reqPcs} pcs / {activeLine.reqWt} ctw
                         </span>
                       )}
                     </div>
@@ -1200,7 +1198,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                       </span>
                       <span className="sse-data-card__req-sep">/</span>
                       <span className="sse-data-card__req-val">
-                        {activeLine.assignedBag.stockWt} ct
+                        {activeLine.assignedBag.stockWt} ctw
                       </span>
                     </div>
                   )}
@@ -1209,7 +1207,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                     <span className="sse-data-card__req-label">Required:</span>
                     <span className="sse-data-card__req-val">{activeLine.reqPcs} pcs</span>
                     <span className="sse-data-card__req-sep">/</span>
-                    <span className="sse-data-card__req-val">{activeLine.reqWt} ct</span>
+                    <span className="sse-data-card__req-val">{activeLine.reqWt} ctw</span>
                   </div>
 
                   {engagedInputLocked ? (
@@ -1217,7 +1215,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                       <div className="sse-engaged-lock__row">
                         <span className="sse-engaged-lock__label">Already Engaged</span>
                         <span className="sse-engaged-lock__vals">
-                          {pcsValue} pcs &nbsp;/&nbsp; {wtValue} ct
+                          {pcsValue} pcs &nbsp;/&nbsp; {wtValue} ctw
                         </span>
                       </div>
                       <div className="sse-engaged-lock__btns">
@@ -1264,7 +1262,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                           {pcsError && <span className="sse-field__error">{pcsError}</span>}
                         </div>
                         <div className="sse-field">
-                          <label>WT (ct)</label>
+                          <label>WT (ctw)</label>
                           <input
                             id="sse-wt-input"
                             type="number"
@@ -1276,7 +1274,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                               setWtValue(val);
                               const avail = activeLine?.assignedBag?.stockWt ?? null;
                               if (avail !== null && avail > 0 && (parseFloat(val) || 0) > avail) {
-                                setWtError(`Max ${avail} ct available`);
+                                setWtError(`Max ${avail} ctw available`);
                               } else { setWtError(''); }
                             }}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}

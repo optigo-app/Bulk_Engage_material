@@ -52,6 +52,15 @@ $mono: "JetBrains Mono", "Courier New", monospace;
     color: var(--text-muted);
   }
 
+  &__autofill {
+    &.MuiFormControlLabel-root {
+      margin: 0;
+      flex-shrink: 0;
+      .MuiFormControlLabel-label { font-size: 12px; color: var(--text-secondary); }
+      .MuiCheckbox-root { padding: 4px; }
+    }
+  }
+
   &__track {
     flex: 1;
     height: 4px;
@@ -199,12 +208,6 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   table-layout: fixed;
 }
 
-// thead rows
-.bse-thead-main {
-}
-.bse-thead-sub {
-}
-
 .bse-th {
   padding: 6px 10px;
   background: var(--bg-surface, var(--bg-input));
@@ -261,13 +264,6 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   &:hover {
     background: var(--bg-card-hover, var(--bg-surface));
   }
-
-  &--bag {
-    background: color-mix(in srgb, var(--primary) 3%, var(--bg-card));
-  }
-  &--nobag {
-    background: color-mix(in srgb, var(--warning, #f57c00) 3%, var(--bg-card));
-  }
 }
 
 .bse-td {
@@ -284,8 +280,6 @@ $mono: "JetBrains Mono", "Courier New", monospace;
     color: var(--text-muted);
     font-size: 11px;
     font-family: $mono;
-  }
-  &--mat {
   }
   &--desc {
     font-size: 12px;
@@ -335,12 +329,18 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   font-family: $mono;
   white-space: nowrap;
 
-  &--auto {
-    background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-    color: var(--success, #2e7d32);
-    border: 1px solid
-      color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
-  }
+    &--autocomp {
+      background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+      color: var(--success, #2e7d32);
+      border: 1px solid
+        color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+    }
+
+    &--autoccust {
+      background: color-mix(in srgb, #64aaec 12%, transparent);
+      color: #15a1e2;
+      border: 1px solid #3d91f1;
+    }
   &--manual {
     background: color-mix(in srgb, var(--primary) 12%, transparent);
     color: var(--primary-light, var(--primary));
@@ -363,15 +363,6 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   margin-left: 4px;
   font-weight: 600;
   display: inline-block;
-
-  &--company {
-    // background: rgba(59, 130, 246, 0.12);
-    color: #2563eb;
-  }
-  &--customer {
-    background: rgba(249, 115, 22, 0.12);
-    color: #ea580c;
-  }
 }
 
 .bse-table {
@@ -437,6 +428,7 @@ $mono: "JetBrains Mono", "Courier New", monospace;
     -webkit-appearance: none;
   }
   -moz-appearance: textfield;
+  appearance: textfield;
 
   &--error {
     border-color: #ef4444 !important;

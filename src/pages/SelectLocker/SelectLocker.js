@@ -207,7 +207,11 @@ const SelectLocker = () => {
   };
 
   const handleContinue = () => {
-    if (state.locker) navigate('/select-process');
+    if (!state.locker) return;
+    // If Job Verification is enabled (set on the Scan Employee screen), branch
+    // into the return/verification flow instead of the normal engage process.
+    const jobVerification = sessionStorage.getItem('jobverification') === 'true';
+    navigate(jobVerification ? '/job-verification' : '/select-process');
   };
 
   return (

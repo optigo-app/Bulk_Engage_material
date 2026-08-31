@@ -27,10 +27,10 @@ const Sidebar = () => {
             onClick={() => setIsOpen(prev => !prev)}
             aria-label={isOpen && 'Expand sidebar'}
             style={{ cursor: 'pointer' }}
-          >EM</div>
+          >BE</div>
           {isOpen && (
             <div className="sidebar__logo-text">
-              <span className="sidebar__title">Engage Material</span>
+              <span className="sidebar__title">Bulk Engage</span>
             </div>
           )}
         </div>

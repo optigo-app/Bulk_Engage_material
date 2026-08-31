@@ -18,14 +18,6 @@ const getSession = (key) => {
   } catch { return []; }
 };
 
-const getMaterialIcon = (itemid, size = 14) => {
-  switch (itemid) {
-    case 3: return <Gem size={size} />;
-    case 4: return <Palette size={size} />;
-    case 5: return <Wrench size={size} />;
-    default: return <Package size={size} />;
-  }
-};
 
 const getMaterialColor = (itemid) => {
   switch (itemid) {
@@ -207,7 +199,6 @@ const SingleBulkEntry = ({ state, actions }) => {
     }));
   });
   const [saveFlash, setSaveFlash] = useState(false);
-
   const jobInputRef = useRef(null);
 
   useEffect(() => { jobInputRef.current?.focus(); }, []);
@@ -586,8 +577,6 @@ const SingleBulkEntry = ({ state, actions }) => {
   const handleSaveJob = () => {
     if (!activeJob) return;
     if (materials.some((m) => m.pcsError || m.cwtError)) return;
-    // Block any bag-assigned row that has zero/blank weight — a 0 ct entry
-    // must never be saved.
     if (materials.some((m) => m.assignedBag && !m.engagedLocked && !(parseFloat(m.cwt) > 0))) return;
     const entries = materials.map((m) => ({
       qid: m.qid,
@@ -714,7 +703,6 @@ const SingleBulkEntry = ({ state, actions }) => {
             {/* Card header */}
             <div className="sbe-card__head">
               <div className="sbe-card__title">
-                <PackageOpen size={17} />
                 <span>Job: <strong>{activeJob.id}</strong></span>
               </div>
               <div className="sbe-card__badges">
@@ -743,7 +731,7 @@ const SingleBulkEntry = ({ state, actions }) => {
                 <span className="sbe-col sbe-col--spec">Spec</span>
                 <span className="sbe-col sbe-col--bag">Bag No.</span>
                 <span className="sbe-col sbe-col--req">Req. PCS</span>
-                <span className="sbe-col sbe-col--req">Req. CWT</span>
+                <span className="sbe-col sbe-col--req">Req. CTW / Gms</span>
                 <span className="sbe-col sbe-col--issue">Issue PCS</span>
                 <span className="sbe-col sbe-col--issue">Issue CWT</span>
               </div>
@@ -788,7 +776,6 @@ const SingleBulkEntry = ({ state, actions }) => {
 
                         <span className="sbe-col sbe-col--item sbe-item-cell"
                           style={{ '--ic': getMaterialColor(mat.itemid) }}>
-                          {getMaterialIcon(mat.itemid)}
                           <span>{mat.MaterialTypeName || mat.item}</span>
                         </span>
 
@@ -803,12 +790,18 @@ const SingleBulkEntry = ({ state, actions }) => {
 
                         <span className="sbe-col sbe-col--bag">
                           {has ? (
-                            <span className="sbe-bag-ok">
+                            <span
+                              className={`sbe-bag-ok--${mat.matchedBag
+                                ? mat.matchedBag.iscompany == 1
+                                  ? 'autocomp'
+                                  : 'autoccust'
+                                : 'manual'
+                                }`}
+                            >
                               <CheckCircle2 size={12} />
                               <span className="sbe-bag-ok__no">{mat.assignedBag}</span>
                               {mat.matchedBag && (
                                 <span
-                                  className={`sbe-bag-owner ${mat.matchedBag.iscompany == 1 ? 'sbe-bag-owner--company' : 'sbe-bag-owner--customer'}`}
                                 >
                                   {mat.matchedBag.iscompany == 1 ? 'Company' : 'Customer'}
                                 </span>
@@ -895,10 +888,6 @@ const SingleBulkEntry = ({ state, actions }) => {
             {/* Save bar */}
             <div className="sbe-save-bar">
               <span className={pendingCount > 0 ? 'sbe-save-bar__warn' : 'sbe-save-bar__ok'}>
-                {pendingCount > 0
-                  ? <><AlertTriangle size={13} /> {pendingCount} row{pendingCount !== 1 ? 's' : ''} still need a bag</>
-                  : <><CheckCircle2 size={13} /> All bags assigned</>
-                }
               </span>
               {activeJob?.locked ? (
                 <Button
@@ -974,7 +963,6 @@ const SingleBulkEntry = ({ state, actions }) => {
                       onClick={() => handleAssignFromList(b)}
                       style={{ '--ic': getMaterialColor(b.itemid) }}
                     >
-                      <span className="sbe-modal__bag-icon">{getMaterialIcon(b.itemid, 13)}</span>
                       <span className="sbe-modal__bag-no">{b.rfbag}</span>
                       <span className="sbe-modal__bag-spec">
                         {b.shape} · {b.quality} · {b.color_name} · {b.size}
@@ -1000,10 +988,15 @@ const SingleBulkEntry = ({ state, actions }) => {
       {/* ── Saved jobs ── */}
       {savedJobs.length > 0 && (
         <div className="sbe-saved">
-          <div className="sbe-saved__title"><CheckCircle2 size={14} /> Saved Jobs ({savedJobs.length})</div>
+          <div className="sbe-saved__title"><CheckCircle2 size={14} />Job</div>
           {savedJobs.map((sj, i) => {
             const a = sj.materials.filter((m) => m.assignedBag).length;
             const n = sj.materials.length - a;
+            const totReqWt = sj.materials.reduce((acc, m) => acc + (m.requiredWt || 0), 0);
+            const totEntryWt = sj.materials.reduce((acc, m) => acc + (parseFloat(m.cwt) || 0), 0);
+            const totReqPcs = sj.materials.reduce((acc, m) => acc + (m.requiredPcs || 0), 0);
+            const totEntryPcs = sj.materials.reduce((acc, m) => acc + (parseFloat(m.pcs) || 0), 0);
+
             return (
               <div key={i} className="sbe-saved__job">
                 <div className="sbe-saved__job-head">
@@ -1013,16 +1006,26 @@ const SingleBulkEntry = ({ state, actions }) => {
                     {n > 0 && <span className="sbe-saved__no-bag-pill">{n} no bag</span>}
                   </span>
                 </div>
+
+                {/* Summary totals */}
+                <div style={{ display: 'flex', gap: 8, padding: '4px 0 6px', flexWrap: 'wrap' }}>
+                  <span className="sbe-saved__sum-chip">
+                    PCS: <b>{totEntryPcs}</b>/<span style={{ color: '#888' }}>{totReqPcs}</span>
+                  </span>
+                  <span className="sbe-saved__sum-chip">
+                    CTW: <b>{totEntryWt.toFixed(3)}</b>/<span style={{ color: '#888' }}>{totReqWt.toFixed(3)}</span>
+                  </span>
+                </div>
+
                 <div className="sbe-saved__chips">
                   {sj.materials.map((m, mi) => (
                     <div key={`${m.qid}_${m.jid}_${mi}`} className={`sbe-saved__chip ${!m.assignedBag ? 'sbe-saved__chip--warn' : ''}`}>
-                      <span style={{ color: getMaterialColor(m.itemid), display: 'flex' }}>{getMaterialIcon(m.itemid)}</span>
-                      <span className="sbe-saved__spec">{m.shape} · {m.quality} · {m.color} · {m.size}</span>
+                      <span className="sbe-saved__spec">{m.shape} · {m.quality} · {m.color}{m.size ? ` · ${m.size}` : ''}</span>
                       {m.assignedBag
                         ? <span className="sbe-saved__bag">{m.assignedBag}</span>
                         : <span className="sbe-saved__nobag">No bag</span>
                       }
-                      <span className="sbe-saved__vals">{m.pcs || '—'} / {m.cwt || '—'}</span>
+                      <span className="sbe-saved__vals">{m.pcs || '—'} pcs / {m.cwt || '—'} ctw</span>
                     </div>
                   ))}
                 </div>

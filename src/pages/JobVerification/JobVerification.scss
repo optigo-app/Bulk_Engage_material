@@ -1,0 +1,258 @@
+@import "../../styles/variables";
+
+.job-verify {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  padding: 8px 0;
+
+  // ── Top bar: compact scanner (left) + title/status (right) ──
+  &__topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  // row tint for a row that's currently unlocked for inline editing
+  .bse-tr--returned {
+    background: rgba(74, 222, 128, 0.05);
+  }
+
+  &__scanbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  &__scanbox-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  }
+
+  &__scanbox-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__input {
+    width: 260px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: $border-radius-sm;
+    color: var(--text-primary);
+    padding: 9px 12px;
+    font-size: 14px;
+    height: 40px;
+    transition: border-color 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  &__scan-btn {
+    &.MuiButton-root {
+      height: 40px;
+      text-transform: none;
+      font-weight: 600;
+      border-radius: $border-radius-sm;
+      padding: 0 18px;
+    }
+  }
+
+  &__topbar-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  &__title-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  &__sub {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  &__returned-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--success, #16a34a);
+    background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    border-radius: 6px;
+    padding: 4px 10px;
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--error, #c62828);
+    background: color-mix(in srgb, var(--error, #c62828) 10%, transparent);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+
+  // ── Body ──
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1.5px dashed var(--border-color);
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  &__empty-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: var(--bg-surface, var(--bg-input));
+  }
+
+  // Per-row (material/entry-wise) Return button
+  &__row-return-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    background: color-mix(in srgb, #f59e0b 12%, transparent);
+    border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, #f59e0b 20%, transparent);
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__returned-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--success, #16a34a);
+    background: color-mix(in srgb, var(--success, #22c55e) 14%, transparent);
+    border-radius: 6px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+
+  // ── Actions ──
+  &__actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__back-btn.MuiButton-root,
+  &__continue-btn.MuiButton-root {
+    text-transform: none;
+    font-weight: 600;
+    border-radius: $border-radius-sm;
+  }
+
+  .job-verify__row-returnall-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid #ef4444;
+    background: transparent;
+    color: #ef4444;
+    cursor: pointer;
+    &:hover {
+      background: #fef2f2;
+    }
+  }
+
+  .job-verify__returnall-tag {
+    font-size: 11px;
+    color: #ef4444;
+    font-weight: 600;
+  }
+
+  .bse-tr--returnall {
+    background: #fff5f5 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .job-verify__topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .job-verify__topbar-right {
+    align-items: flex-start;
+    margin-left: 0;
+  }
+  .job-verify__input {
+    width: 100%;
+  }
+  .job-verify__scanbox-input {
+    flex: 1;
+  }
+}

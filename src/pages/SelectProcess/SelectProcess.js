@@ -1,22 +1,28 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEngage } from '../../context/EngageContext';
-import { ArrowRight, ArrowLeft, Layers, Gem, Palette, Wrench, Package, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Layers, Gem, Palette, Wrench, Stone, Package, Sparkles } from 'lucide-react';
 import Button from '@mui/material/Button';
 import './SelectProcess.scss';
 
 const MATERIALS = [
-  { id: 'all',        label: 'All',        icon: Package, color: '#1565c0' },
-  { id: 'diamond',    label: 'Diamond',    icon: Gem,     color: '#e91e63' },
+  { id: 'all', label: 'All', icon: Package, color: '#1565c0' },
+  { id: 'diamond', label: 'Diamond', icon: Gem, color: '#e91e63' },
   { id: 'colorstone', label: 'Colorstone', icon: Palette, color: '#9c27b0' },
-  { id: 'misc',       label: 'Misc',       icon: Sparkles, color: '#ff9800' },
-  { id: 'findings',   label: 'Findings',   icon: Wrench,  color: '#ff9800' },
+  { id: 'misc', label: 'Misc', icon: Sparkles, color: '#ff9800' },
+  { id: 'findings', label: 'Findings', icon: Wrench, color: '#8f3bfc' },
+  { id: 'Solitore', label: 'Solitore', icon: Stone, color: '#6343f1' },
 ];
 
 const SelectProcess = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    if (state.materialType) return 3;
+    if (state.processSubType) return 3; // ScanJobs se back aaya = subType set hai, material select karna hai
+    if (state.processType) return 2;
+    return 1;
+  });
   const [focusedIdx, setFocusedIdx] = useState(0);
   const gridRef = useRef(null);
 
@@ -30,9 +36,9 @@ const SelectProcess = () => {
     const items = getCurrentItems();
     const selectedId =
       step === 1 ? state.processType
-      : step === 2 ? state.processSubType
-      : step === 3 ? state.materialType
-      : null;
+        : step === 2 ? state.processSubType
+          : step === 3 ? state.materialType
+            : null;
     const idx = selectedId ? items.indexOf(selectedId) : -1;
     setFocusedIdx(idx >= 0 ? idx : 0);
   }, [step]); // eslint-disable-line
@@ -135,12 +141,12 @@ const SelectProcess = () => {
     navigate('/scan-jobs');
   };
 
+  // ✅ After
   const handleBackStep = () => {
     if (step === 3) {
       actions.setMaterialType(null);
       setStep(2);
     } else if (step === 2) {
-      actions.setProcessType(null);
       actions.setProcessSubType(null);
       setStep(1);
     } else {
@@ -175,13 +181,13 @@ const SelectProcess = () => {
   // Step 2 cards data
   const step2Cards = state.processType === 'single'
     ? [
-        { id: 'single-single', label: 'Single → Single', desc: 'One job with one material at a time',    tag: 'A1', iconType: 'a1' },
-        { id: 'single-bulk',   label: 'Single → Bulk',   desc: 'One job with multiple materials',        tag: 'A2', iconType: 'a2' },
-      ]
+      { id: 'single-single', label: 'Single → Single', desc: 'One job with one material at a time', tag: 'A1', iconType: 'a1' },
+      { id: 'single-bulk', label: 'Single → Bulk', desc: 'One job with multiple materials', tag: 'A2', iconType: 'a2' },
+    ]
     : [
-        { id: 'bulk-single', label: 'Bulk → Single',  desc: 'Multiple jobs with single material each', tag: 'B1', iconType: 'b1' },
-        { id: 'bulk-bulk',   label: 'Bulk → Bulk RM', desc: 'Multiple jobs with bulk raw material',    tag: 'B2', iconType: 'b2' },
-      ];
+      { id: 'bulk-single', label: 'Bulk → Single', desc: 'Multiple jobs with single material each', tag: 'B1', iconType: 'b1' },
+      { id: 'bulk-bulk', label: 'Bulk → Bulk RM', desc: 'Multiple jobs with bulk raw material', tag: 'B2', iconType: 'b2' },
+    ];
 
   return (
     <div className="select-process page-enter">
@@ -216,26 +222,31 @@ const SelectProcess = () => {
         <div className="select-process__section page-enter">
           <h2 className="select-process__section-title">Select Engage Type</h2>
           <div className="select-process__type-grid" ref={gridRef}>
-            {step1Cards.map((card, idx) => (
-              <div
-                key={card.id}
-                className={[
-                  'select-process__type-card',
-                  state.processType === card.id ? 'select-process__type-card--selected' : '',
-                  focusedIdx === idx       ? 'select-process__type-card--focused'   : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => handleProcessType(card.id)}
-                onMouseEnter={() => setFocusedIdx(idx)}
-                onMouseLeave={() => setFocusedIdx(-1)}
-              >
-                <div className={`select-process__type-icon select-process__type-icon--${card.iconType}`}>
-                  <card.Icon size={32} />
+            {step1Cards.map((card, idx) => {
+              const isSelected = state.processType === card.id;
+              return (
+                <div
+                  key={card.id}
+                  className={[
+                    'select-process__type-card',
+                    isSelected ? 'select-process__type-card--selected' : '',
+                    focusedIdx === idx ? 'select-process__type-card--focused' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => handleProcessType(card.id)}
+                  onMouseEnter={() => setFocusedIdx(idx)}
+                  onMouseLeave={() => setFocusedIdx(-1)}
+                >
+                  {isSelected && (
+                    <div className="select-process__type-check">✓</div>
+                  )}
+                  <div className={`select-process__type-icon select-process__type-icon--${card.iconType}`}>
+                    <card.Icon size={32} />
+                  </div>
+                  <h3>{card.label}</h3>
+                  <p>{card.desc}</p>
                 </div>
-                <h3>{card.label}</h3>
-                <p>{card.desc}</p>
-                <div className="select-process__type-tag">{card.tag}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -247,25 +258,31 @@ const SelectProcess = () => {
             Select Sub-Type for {state.processType === 'single' ? 'Single' : 'Bulk'} Engage
           </h2>
           <div className="select-process__type-grid" ref={gridRef}>
-            {step2Cards.map((card, idx) => (
-              <div
-                key={card.id}
-                className={[
-                  'select-process__type-card',
-                  state.processSubType === card.id ? 'select-process__type-card--selected' : '',
-                  focusedIdx === idx          ? 'select-process__type-card--focused'   : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => handleSubType(card.id)}
-                onMouseEnter={() => setFocusedIdx(idx)}
-                onMouseLeave={() => setFocusedIdx(-1)}
-              >
-                <div className={`select-process__type-icon select-process__type-icon--${card.iconType}`}>
-                  <span className="select-process__type-label-big">{card.tag}</span>
+            {step2Cards.map((card, idx) => {
+              const isSelected = state.processSubType === card.id;
+              return (
+                <div
+                  key={card.id}
+                  className={[
+                    'select-process__type-card',
+                    isSelected ? 'select-process__type-card--selected' : '',
+                    focusedIdx === idx ? 'select-process__type-card--focused' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => handleSubType(card.id)}
+                  onMouseEnter={() => setFocusedIdx(idx)}
+                  onMouseLeave={() => setFocusedIdx(-1)}
+                >
+                  <div className={`select-process__type-icon select-process__type-icon--${card.iconType}`}>
+                    <span className="select-process__type-label-big">{card.tag}</span>
+                  </div>
+                  <h3>{card.label}</h3>
+                  <p>{card.desc}</p>
+                  {isSelected && (
+                    <div className="select-process__type-check">✓</div>
+                  )}
                 </div>
-                <h3>{card.label}</h3>
-                <p>{card.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -277,24 +294,25 @@ const SelectProcess = () => {
           <div className="select-process__material-grid" ref={gridRef}>
             {MATERIALS.map((mat, idx) => {
               const Icon = mat.icon;
+              const isSelected = state.materialType === mat.id;
               return (
                 <div
                   key={mat.id}
                   className={[
                     'select-process__material-card',
-                    state.materialType === mat.id ? 'select-process__material-card--selected' : '',
-                    focusedIdx === idx             ? 'select-process__material-card--focused'   : '',
+                    isSelected ? 'select-process__material-card--selected' : '',
+                    focusedIdx === idx ? 'select-process__material-card--focused' : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => handleMaterial(mat.id)}
                   onMouseEnter={() => setFocusedIdx(idx)}
-                onMouseLeave={() => setFocusedIdx(-1)}
+                  onMouseLeave={() => setFocusedIdx(-1)}
                   style={{ '--mat-color': mat.color }}
                 >
                   <div className="select-process__material-icon">
                     <Icon size={28} />
                   </div>
                   <span className="select-process__material-label">{mat.label}</span>
-                  {state.materialType === mat.id && (
+                  {isSelected && (
                     <div className="select-process__material-check">✓</div>
                   )}
                 </div>

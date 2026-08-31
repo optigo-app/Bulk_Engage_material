@@ -1,0 +1,1018 @@
+USE [404146_CentralUser]
+GO
+/****** Object:  StoredProcedure [dbo].[protxnr50b3]    Script Date: 29-08-2026 12:04:10 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,system>
+-- Create date: <Create Date :: Dec 20 2011 10:57AM>
+-- Description:	<Description :: >
+-- =============================================		
+ALTER PROCEDURE [dbo].[protxnr50b3]
+	 @con NVARCHAR(MAX)= '' 	
+	,@p NVARCHAR(MAX)= ''
+AS
+BEGIN
+	SET NOCOUNT ON;
+	-- dbo.getparam 'ProTxn'
+
+	DECLARE @FromDate AS DATETIME=isnull([dbo].[UTC_CSERVERLOCAL](getdate()),getdate())
+	DECLARE @ProcedureName nvarchar(max)=OBJECT_NAME(@@PROCID)
+	DECLARE @spname AS NVARCHAR(MAX)
+	SELECT 
+		@spname = COALESCE(@spname +char(13)+'	, ', '') + concat(A.name,' = ''', A.value ,'''')
+	FROM (		
+		SELECT name, value
+		FROM (values 
+			(1, '@con', replace(cast(@con as NVARCHAR(MAX)),'''','''''')),
+			(2, '@p', replace(cast(@p as NVARCHAR(MAX)),'''','''''')),
+			(1, '--@con', replace(cast([dbo].Base64Decode(@con) as NVARCHAR(MAX)),'''','''''')),
+			(2, '--@p', replace(cast([dbo].Base64Decode(@p) as NVARCHAR(MAX)),'''',''''''))
+			) p(num, name, value)
+	) AS A(name, value)		
+	--SET @spname=concat('exec [',DB_NAME(),'].[dbo].',@ProcedureName,' ',@spname)	
+-------------
+	SET @spname=concat('exec [404146_CentralUser].[dbo].',OBJECT_NAME(@@PROCID),' ',@spname)
+	DECLARE 
+		  @DBNAME as NVARCHAR(200)=''	
+		, @appuserid NVARCHAR(100)= '' 
+		, @IPAddress NVARCHAR(50)= '' 
+		, @FormName NVARCHAR(200)= ''
+		, @mode NVARCHAR(100)= ''
+		, @id NVARCHAR(50)= ''
+		, @y NVARCHAR(100)= ''
+		, @Authorization NVARCHAR(100)= ''
+		, @domain NVARCHAR(50)= ''
+		, @version as NVARCHAR(10)= ''
+		, @ForEvt nvarchar(200)=''
+	
+	print '--step-1'
+
+	SET @con = [dbo].Base64Decode(@con);
+	PRINT CONCAT(' @con : ',@con);
+
+	print concat('--@con',@con)
+	IF(isnull(@con,'')<>'')
+	BEGIN
+		DECLARE @conTbl TABLE
+		(			
+			[id] NVARCHAR(50)
+			, [mode] NVARCHAR(100)		
+			, [y] NVARCHAR(100)
+			, [appuserid] NVARCHAR(100)
+			, [IPAddress] NVARCHAR(50)
+			, [FormName] NVARCHAR(200)
+			, [Authorization] NVARCHAR(100)
+			, [domain] NVARCHAR(50)
+			, [version] NVARCHAR(10)
+		)
+
+		BEGIN TRY
+			BEGIN
+				INSERT INTO @conTbl
+				(
+				  [id]
+				, [mode]
+				, [y]
+				, [appuserid]
+				, [IPAddress]
+				, [FormName]
+				, [Authorization]
+				, [domain]
+				, [version]
+				)				
+				SELECT
+					  ISNULL([id],0) as [id]
+					, ISNULL([mode],'') as [mode]
+					, ISNULL([y],'') as [y]
+					, ISNULL([appuserid],'') as [appuserid]
+					, ISNULL([IPAddress],'') as [IPAddress]
+					, ISNULL([FormName],'') as [FormName]
+					, ISNULL([Authorization],'') as [Authorization]
+					, ISNULL([domain],'') as [domain]
+					, ISNULL([version],'') as [version]
+				FROM OPENJSON(isnull(@con,''))
+				WITH 
+				(
+					  [id] NVARCHAR(50) '$.id'
+					, [mode] NVARCHAR(100) '$.mode'		
+					, [y] NVARCHAR(100) '$.y'
+					, [appuserid] NVARCHAR(100) '$.appuserid'
+					, [IPAddress] NVARCHAR(50) '$.IPAddress'
+					, [FormName] NVARCHAR(200) '$.FormName'
+					, [Authorization] NVARCHAR(100) '$.Authorization'
+					, [domain] NVARCHAR(50) '$.domain'
+					, [version] NVARCHAR(10) '$.version'
+				) AS a
+
+				SELECT TOP 1 
+					 @id =ISNULL([id],0)
+					,@mode =ISNULL([mode],'')
+					,@y =ISNULL([y],'')
+					,@appuserid =ISNULL([appuserid],'')
+					,@IPAddress =ISNULL([IPAddress],'')
+					,@FormName =ISNULL([FormName],'')
+					,@Authorization =ISNULL([Authorization],'')
+					,@domain =ISNULL([domain],'')
+					,@version =ISNULL([version],'')
+				FROM @conTbl
+			END
+		END TRY
+		BEGIN CATCH	
+			PRINT '-------CATCH---------'
+		END CATCH;
+	END
+	
+	
+
+
+	SET @DBNAME = isnull([dbo].[GetdbName](@y),'')	
+
+	print ('--mode : ' + @mode)
+	print ('--y : ' + @y)
+	print ('--@Authorization : '+@Authorization)		
+	print concat('--@p :',@p)
+	print concat('--@DBNAME :',@DBNAME)
+----------------------------------------------------------------------------------------------------------------
+	print '--11'
+	DECLARE 
+		  @SQL nvarchar(max)=''
+		, @SQLA nvarchar(max)=''
+		, @SQLB nvarchar(max)=''
+		, @SQLC nvarchar(max)=''
+		, @SQLD nvarchar(max)=''
+		, @SQLE nvarchar(max)=''
+		, @SQLF nvarchar(max)=''
+		, @SQLG nvarchar(max)=''
+		, @SQLH nvarchar(max)=''
+		, @SQL1 nvarchar(max)=''		
+		, @SQL2 nvarchar(max)=''		
+		, @SQL3 nvarchar(max)=''		
+		, @SQL4 nvarchar(max)=''		
+		, @SQL5 nvarchar(max)=''
+		, @SQL6 nvarchar(max)=''
+		, @SQL6A NVARCHAR(max) = ''
+		, @SQL7 nvarchar(max)=''
+		, @SQL8 nvarchar(max)=''
+		, @SQL9 nvarchar(max)=''
+		, @SQL10 nvarchar(max)=''
+		, @serialjobnos nvarchar(max) = ''
+		, @rfbags nvarchar(max) = ''
+		, @txnid nvarchar(max) = ''
+		, @empid nvarchar(50) = ''
+		, @loginid nvarchar(50) = ''
+		, @tablename as nvarchar(max)=concat('#',OBJECT_NAME(@@PROCID),'_temp',replace(replace(replace(replace(convert(nvarchar(max),getdate(),21),'-',''),':',''),' ',''),'.',''))
+		, @isstockonhand as int=0
+		;
+
+BEGIN TRY
+	
+		
+	
+	if(isnull(@p,'')<>'')
+	begin
+		declare @PTbl table
+		(
+			  serialjobnos nvarchar(max)
+			, rfbags nvarchar(max)
+			, empid nvarchar(50)
+			, loginid nvarchar(50)
+			, isstockonhand int
+			, txnid nvarchar(max)
+		)
+
+		BEGIN TRY
+			BEGIN
+				Print('--Variable declaration of ptbl');
+				insert into @PTbl
+				(
+					 serialjobnos
+					,rfbags
+					,empid
+					,loginid
+					,isstockonhand
+					,txnid
+				)				
+				select
+					 isnull(serialjobnos,'') as serialjobnos
+					,isnull(rfbags,'') as rfbags
+					,isnull(empid,'0') as empid
+					,isnull(loginid,'0') as loginid
+					,ISNULL(isstockonhand,'0') as isstockonhand
+					,isnull(txnid,'') as txnid
+				FROM OPENJSON(isnull(@p,''))
+				WITH 
+				(
+					 serialjobnos NVARCHAR(MAX) '$.serialjobnos' 
+					,rfbags NVARCHAR(MAX) '$.rfbags' 
+					,empid NVARCHAR(20) '$.empid' 
+					,loginid NVARCHAR(20) '$.loginid' 
+					,isstockonhand INT '$.isstockonhand'
+					,txnid NVARCHAR(MAX) '$.txnid' 
+				) as a
+
+
+				select top 1 
+					  @serialjobnos = serialjobnos
+					, @rfbags = rfbags
+					, @empid = empid
+					, @loginid = loginid
+					, @isstockonhand = isstockonhand
+					, @txnid=txnid
+				from @PTbl
+			END
+		END TRY
+		BEGIN CATCH	
+			Print '--';
+		END CATCH;
+	END
+	
+		
+
+	
+
+
+DECLARE 
+	 @issrjobnoingroup as int=0	
+
+
+	print '--step-1 variable declared'
+	PRINT CONCAT('--@rfbags : ',@rfbags);
+	PRINT CONCAT('--@txnid : ',@txnid);
+
+BEGIN
+	
+	
+	
+print concat('--@mode :',@mode)
+
+
+	IF(isnull(@mode,'')='gettoken')
+	BEGIN
+		print @mode	
+
+		
+			DECLARE 
+				 @UploadLogicalPath NVARCHAR(MAX)=''
+				,@cuVer NVARCHAR(50)=''
+				,@ukey NVARCHAR(200)=''				
+			;
+
+			select 
+				@UploadLogicalPath=ISNULL(UploadLogicalPath,'')
+			from [404146_CentralUser].dbo.inf;
+		
+
+			select 
+				 dbUniqueKey  as token
+				,ukey
+				,serverid as sv
+				,CONCAT(REPLACE(@UploadLogicalPath,'{{vername}}',cuVer),'/',@ukey) as url_path
+				,cuVer
+				,concat(iif(isnull(serverid,0)=0,'http://','https://'),domainname,'/',cuVer,'/') as url_optigo	 
+				
+			from [404146_CentralUser].dbo.databasemanagement_SwitchToSample_permission with (nolock)
+			where dbname=@DBNAME
+		
+
+
+	END
+	IF(isnull(@mode,'')='companyinfo')
+	BEGIN
+		print @mode	
+
+		SET @SQL = '
+			DECLARE 
+				 @isbulkengage as int=0
+			;
+
+			select top(1)
+				@isbulkengage=ISNULL([value],0)
+			from ['+@DBNAME+'].dbo.webconfig  with (nolock)
+			where ISNULL([key],'''')=''isbulkengage''
+
+			select @isbulkengage as isbulkengage
+
+		'
+		PRINT (@SQL)
+		EXEC (@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'getlocker')
+	BEGIN
+		SET @SQL = '
+			select 
+				id
+				,Lockername 
+			from ['+@DBNAME+'].dbo.Mastermanagement_Locker with (nolock)
+			where isnull(isdelete,0)=0
+			and ISNULL(Lockername,'''')<>''''
+			order by isnull(id,0) 
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'getemplist')
+	BEGIN
+		SET @SQL = '
+			select id
+				,BarCode as bcode
+				,isnull(customercode,'''') as code
+				,concat(firstname,'' '',lastname) as name				
+				,isnull(designation,'''') as degn
+			from ['+@DBNAME+'].dbo.Usermanagement_systemloginmaster with (nolock)
+			where mastermanagement_roleid=3
+			and isnull(isactive,0)=1 
+			and isnull(isDelete,0)=0 
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'joblist')
+	BEGIN
+		--select TOP(1)
+		--	 @_cuver=isnull(cuver,'''')
+		--	,@_Image_ukey=concat(''/'',iif(isnull(uKeyFolder,'''')<>'''',concat(uKeyFolder,''/''),''''),Image_ukey,''/'') 
+		--from [404146_CentralUser].dbo.[databasemanagement_SwitchToSample_permission] with (nolock)
+		--where dbname='''+@DBNAME+'''
+
+		SET @SQL = '
+			select 
+				 serialjobno
+				--,SerialNo
+				--,Srorderno
+				--,Srversionname
+				,Designcode as design
+				,id as jid
+				,category
+				,CustomerCode as ccode
+				,CustomerName as cname
+				,MetalColor	as color
+			
+				,MetalType as metal
+				,productionstatusname as status
+				,Mastermanagement_MFG_JobLastLocationname as [location]
+				--,ISNULL(isdhadijob,0) as ishmw
+				--,ISNULL(ismisc_not_addingrosswt,0) as isaddingrosswt
+				--,ISNULL(IsPrimaryLossOnFinding,0) as isfindingloss
+			FROM  ['+@DBNAME+'].dbo.ProductionManagement_SerialNoBook with (nolock)
+			WHERE isnull(IsFactoryOutwardFlow,0)=0 
+			AND isnull(SpruedWtReturnRfbag,'''')=''''
+			AND isnull(ismerged,0)=0
+			AND isnull(isAllSplitedJobsNotMerged,0)=0 					
+			AND ISNULL(isReverseEngage,0)=0			
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'materiallist')
+	BEGIN
+		--select TOP(1)
+		--	 @_cuver=isnull(cuver,'''')
+		--	,@_Image_ukey=concat(''/'',iif(isnull(uKeyFolder,'''')<>'''',concat(uKeyFolder,''/''),''''),Image_ukey,''/'') 
+		--from [404146_CentralUser].dbo.[databasemanagement_SwitchToSample_permission] with (nolock)
+		--where dbname='''+@DBNAME+'''
+
+		SET @SQL = '
+			declare @defcustid as int=isnull((
+				select top(1) id 
+				from ['+@DBNAME+'].dbo.Usermanagement_systemloginmaster with (nolock)
+				where isnull(isDefaultCustomer,0)=1
+			),0)
+
+			select 
+				master_item_id as itemid
+				,rfbag
+				,shape
+				,Quality
+				,color
+				,Size
+				,isnull(findingtypename,'''') as findingtype
+				,isnull(findingAccessories,'''') as findingAccessories
+				,ISNULL(TotalRemainingWeight,0) as remwt
+				,ISNULL(TotalRemainingPcs,0) as rempcs
+				,LockerName
+				,istoreCust_ID
+				,istoreCust_Customercode
+				,istoreCust_CustName
+				,iif(istorecust_id=@defcustid,1,0) as iscompany
+			from ['+@DBNAME+'].dbo.InventoryManagement_invoice with (nolock)
+			where master_item_id in (3,4,5,7)
+			and isnull(rfbag,'''')<>''''
+			order by master_item_id			
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'getempdept')
+	BEGIN
+		SET @SQL = '
+
+			select 
+				 isnull(MasterManagement_DeptId,0) as did
+				,isnull(MasterManagement_Deptname,'''') as dname
+				,isnull(UserManagement_systemloginmasterid,0) as eid
+				,IsDefault_Dept as defdid
+			from  ['+@DBNAME+'].dbo.UserManagement_Department_Bind  with (nolock)
+
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'getemplocker')
+	BEGIN
+		SET @SQL = '
+			select 
+				MasterManagement_Lockerid as Lockerid
+				,MasterManagement_Lockername as Lockername
+				,UserManagement_systemloginmasterid as empid
+				,IsRead	
+				,IsGrade	
+				,IsWrite	
+				,IsOnlySizeGrade
+			 from ['+@DBNAME+'].dbo.UserManagement_Locker_Bind with(nolock)
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'')='engagedmateriallist')
+	BEGIN
+		SET @SQL='
+			select 
+				 id as txnid
+				,Modifieddate
+				,serialjobno
+				,isnull(InventoryManagement_invoice_rfbag,'''') as rfbag
+				,InventoryManagement_invoice_master_item_id as itemid
+				,ISNULL(materialtypename,'''') as materialtype
+				,ISNULL(shape,'''') as shape
+				,ISNULL(Quality,'''') as Quality
+				,ISNULL(color,'''') as color
+				,ISNULL(Size,'''') as Size
+				,ISNULL(INV_findingtypename,'''') as findingtypename
+				,ISNULL(INV_findingAccessories,'''') as findingAccessories
+				,ISNULL(supplier,'''')
+				,ISNULL(INV_istoreCust_ID,0) as cid
+				,ISNULL(INV_istoreCust_Customercode,'''') as ccode
+				,ISNULL(INV_istoreCust_CustName,'''') as cname
+				,ISNULL(InventoryManagement_invoice_Issweight,0) as isswt
+				,ISNULL(InventoryManagement_invoice_Isspcs,0) as isspcs
+				,isengage
+			from ['+@DBNAME+'].dbo.TransactionLogmanagement_ProductionUpdateLog with (nolock)
+			where isnull(isEngage,0)<>0
+			order by serialjobno
+		'
+		PRINT(@SQL)
+		EXEC(@SQL)
+	END
+	ELSE IF(ISNULL(@mode,'')='order_joblist')
+	BEGIN
+		SET @SQL = '
+				
+				select 
+					 Q.id as qid
+					,J.jid
+					,J.SerialJobNo
+					,Q.QuotationNo	
+					,case 
+						when Q.MasterManagement_DiamondStoneTypeid=1 then 3
+						when Q.MasterManagement_DiamondStoneTypeid=2 then 4
+						when Q.MasterManagement_DiamondStoneTypeid=3 then 7
+						when Q.MasterManagement_DiamondStoneTypeid=5 then 5			
+						end as itemid
+					,case 
+						when Q.MasterManagement_DiamondStoneTypeid=1 then ''DIAMOND''
+						when Q.MasterManagement_DiamondStoneTypeid=2 then ''COLORSTONE''
+						when Q.MasterManagement_DiamondStoneTypeid=3 then ''MISC''
+						when Q.MasterManagement_DiamondStoneTypeid=5 then ''FINDING''
+						else ''COLORSTONE''
+						end	as item
+					,Q.MaterialTypeId
+					,Q.MaterialTypeName
+
+					,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+						,isnull(Q.Mastermanagement_DiamondShapeid,'''')
+						,isnull(Q.Mastermanagement_ColorStoneShapeid,''''))),'''') 
+					as shapeid
+					,shape		
+
+					,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+						,isnull(Q.MasterManagement_diamond_qualityid,'''')
+						,isnull(Q.MasterManagement_colorstone_qualityid,''''))),'''') 
+					as Qualityid
+					,Quality
+
+					,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+						,isnull(Q.MasterManagement_diamond_sizeautocodeid,'''')
+						,isnull(Q.MasterManagement_colorstone_sizeautocodeid,''''))),'''') 
+					as colorid
+					,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+						,isnull(Q.MasterManagement_diamond_colorname,'''')
+						,isnull(Q.MasterManagement_colorstone_colorname,''''))),'''') 
+					as color
+					,Q.MMsize as size
+					,Q.customsize
+					,ISNULL(Q.findingtypename,'''') as findingtypename
+					,ISNULL(Q.findingAccessories,'''') as findingAccessories	
+					,isnull(iif(Q.MasterManagement_DiamondStoneTypeid=1
+								,Q.GrossDiamondWeight
+								,isnull(Q.[Weight],0)+isnull(Q.weight_SizeWise,0)),0) as wt
+					,isnull(Q.pieces,0)+isnull(Q.pieces_SizeWise,0) as pcs	
+					--,concat(@_ImageLogicalPath,@_Image_ukey,''Design_Image/Design_Thumb/'',Q.designno,''~1.jpg'') as imagepath
+				from ['+@DBNAME+'].dbo.[Quotationmanagement_designdiamonddetail] as Q with (nolock)
+				inner join (
+					select 
+						distinct 
+						 iStore_QuotationNo 
+						,id as jid
+						,SerialJobNo
+					FROM  ['+@DBNAME+'].dbo.ProductionManagement_SerialNoBook with (nolock)
+					WHERE isnull(IsFactoryOutwardFlow,0)=0 
+					AND isnull(SpruedWtReturnRfbag,'''')=''''
+					AND isnull(ismerged,0)=0
+					AND isnull(isAllSplitedJobsNotMerged,0)=0 					
+					AND ISNULL(isReverseEngage,0)=0	
+
+				) as J
+					ON Q.QuotationNo=J.iStore_QuotationNo
+				where Q.MasterManagement_DiamondStoneTypeid in (1,2,3,5)
+			'
+
+		PRINT(@SQL)
+		EXEC(@SQL)
+
+	END
+	ELSE IF(ISNULL(@mode,'') = 'valdjobs')
+	BEGIN
+		SET @SQL = '
+				DECLARE 
+					 @validjobs AS NVARCHAR(MAX)=''''
+					,@invalidjobs AS NVARCHAR(MAX)=''''
+					,@_validjobs AS NVARCHAR(MAX)=''''
+					,@_invalidjobs AS NVARCHAR(MAX)=''''
+					,@_ImageLogicalPath AS NVARCHAR(300)=''''
+					,@_cuver AS NVARCHAR(50)=''''
+					,@_Image_ukey AS NVARCHAR(300)=''''
+					;
+
+				select TOP(1)
+					@_cuver=isnull(cuver,'''')
+					,@_Image_ukey=concat(''/'',iif(isnull(uKeyFolder,'''')<>'''',concat(uKeyFolder,''/''),''''),Image_ukey,''/'') 
+				from [404146_CentralUser].dbo.[databasemanagement_SwitchToSample_permission] with (nolock)
+				where dbname='''+@DBNAME+'''
+
+				SELECT TOP(1)
+					@_ImageLogicalPath=REPLACE(ISNULL(ImageLogicalPath,''''),''{{vername}}'',@_cuver)
+				FROM [404146_CentralUser].[dbo].[INF] WITH(NOLOCK);	
+				
+			
+
+
+				WITH InputList AS (
+					SELECT TRIM(value) AS SerialJobNo
+					FROM STRING_SPLIT(
+							REPLACE(' + @serialjobnos + ', '''''''', ''''),
+							'',''
+					)
+				)
+				SELECT 	
+					 @validjobs=STRING_AGG(IIF(s.SerialJobNo IS NOT NULL ,i.SerialJobNo,''''),'','')
+					,@invalidjobs=STRING_AGG(IIF(s.SerialJobNo IS NOT NULL ,'''',i.SerialJobNo),'','')				
+				FROM InputList i
+				LEFT JOIN ['+@DBNAME+'].dbo.ProductionManagement_SerialNoBook s WITH (NOLOCK)
+					ON s.SerialJobNo = i.SerialJobNo
+				   AND ISNULL(s.IsFactoryOutwardFlow,0)=0
+				   AND ISNULL(s.ismerged,0)=0
+				   AND ISNULL(s.isAllSplitedJobsNotMerged,0)=0
+				   AND ISNULL(s.IsSplitProcess_NotCompleted,0)=0
+				   AND ISNULL(s.isReverseEngage,0)=0;
+
+
+				SELECT 
+					@_validjobs=STRING_AGG(value, '','')
+				FROM STRING_SPLIT(@validjobs, '','')
+				WHERE LTRIM(RTRIM(value)) <> '''';
+
+				SELECT 
+					@_invalidjobs=STRING_AGG(value, '','')
+				FROM STRING_SPLIT(@invalidjobs, '','')
+				WHERE LTRIM(RTRIM(value)) <> '''';
+
+				SELECT
+					ISNULL(@_validjobs,'''') AS validjobs
+					,ISNULL(@_invalidjobs,'''') AS invalidjobs
+			'
+		SET @SQL1 = '
+				IF(ISNULL(@_invalidjobs,'''')='''')
+				BEGIN
+					select 
+						 Q.id as qid
+						,J.jid
+						,J.SerialJobNo
+						,Q.QuotationNo	
+						,case 
+							when Q.MasterManagement_DiamondStoneTypeid=1 then 3
+							when Q.MasterManagement_DiamondStoneTypeid=2 then 4
+							when Q.MasterManagement_DiamondStoneTypeid=3 then 7
+							when Q.MasterManagement_DiamondStoneTypeid=5 then 5			
+						 end as itemid
+						,case 
+							when Q.MasterManagement_DiamondStoneTypeid=1 then ''DIAMOND''
+							when Q.MasterManagement_DiamondStoneTypeid=2 then ''COLORSTONE''
+							when Q.MasterManagement_DiamondStoneTypeid=3 then ''MISC''
+							when Q.MasterManagement_DiamondStoneTypeid=5 then ''FINDING''
+							else ''COLORSTONE''
+							end	as item
+						,Q.MaterialTypeId
+						,Q.MaterialTypeName
+
+						,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+							,isnull(Q.Mastermanagement_DiamondShapeid,'''')
+							,isnull(Q.Mastermanagement_ColorStoneShapeid,''''))),'''') 
+						as shapeid
+						,shape		
+
+						,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+							,isnull(Q.MasterManagement_diamond_qualityid,'''')
+							,isnull(Q.MasterManagement_colorstone_qualityid,''''))),'''') 
+						as Qualityid
+						,Quality
+
+						,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+							,isnull(Q.MasterManagement_diamond_sizeautocodeid,'''')
+							,isnull(Q.MasterManagement_colorstone_sizeautocodeid,''''))),'''') 
+						as colorid
+						,isnull((IIF(Q.MasterManagement_DiamondStoneTypeid in (1,5)
+							,isnull(Q.MasterManagement_diamond_colorname,'''')
+							,isnull(Q.MasterManagement_colorstone_colorname,''''))),'''') 
+						as color
+						,Q.MMsize as size
+						,Q.customsize
+						,Q.findingtypename
+						,Q.findingAccessories	
+						,isnull(iif(Q.MasterManagement_DiamondStoneTypeid=1
+									,Q.GrossDiamondWeight
+									,isnull(Q.[Weight],0)+isnull(Q.weight_SizeWise,0)),0) as wt
+						,isnull(Q.pieces,0)+isnull(Q.pieces_SizeWise,0) as pcs	
+						,concat(@_ImageLogicalPath,@_Image_ukey,''Design_Image/Design_Thumb/'',Q.designno,''~1.jpg'') as imagepath
+					from ['+@DBNAME+'].dbo.[Quotationmanagement_designdiamonddetail] as Q with (nolock)
+					inner join (
+						select 
+							 distinct B.iStore_QuotationNo 
+							 ,B.id as jid
+							,B.SerialJobNo
+						from ['+@DBNAME+'].dbo.ProductionManagement_SerialNoBook as B with (nolock)
+						inner join (
+								SELECT TRIM(value) AS SerialJobNo
+								FROM STRING_SPLIT(
+										REPLACE(' + @serialjobnos + ', '''''''', ''''),
+										'',''
+								)
+						) as F
+						ON B.SerialJobNo = F.SerialJobNo
+					) as J
+						ON Q.QuotationNo=J.iStore_QuotationNo
+					where Q.MasterManagement_DiamondStoneTypeid in (1,2,3,5)
+					'
+					
+
+		SET @SQL2 = '
+					select 
+						 string_agg(L.id,'','') as txnid
+						,string_agg(L.Quotation_diamonddetailid,'','') as qid
+						,J.jid as jid
+						,L.SerialJobNo
+						,L.InventoryManagement_invoice_master_item_id as itemid
+						,L.master_itemname as item
+						,L.materialtypeid
+						,L.materialtypename
+						,L.shapeid
+						,L.shape		
+						,L.Qualityid
+						,L.Quality						
+						,L.color
+						,L.size						
+						,ISNULL(L.INV_findingtypename,'''') as INV_findingtypename
+						,ISNULL(L.INV_findingAccessories,'''') as INV_findingAccessories	
+						,SUM(ISNULL(L.InventoryManagement_invoice_Issweight,0)) as wt
+						,SUM(ISNULL(L.InventoryManagement_invoice_Isspcs,0)) as pcs		
+						,string_agg(L.InventoryManagement_invoice_rfbag,'','') as rfbags
+					from ['+@DBNAME+'].dbo.TransactionLogmanagement_ProductionUpdateLog as L with (nolock)
+					inner join (
+						select 
+							distinct B.iStore_QuotationNo 
+							,B.id as jid
+							,B.SerialJobNo
+						from ['+@DBNAME+'].dbo.ProductionManagement_SerialNoBook as B with (nolock)
+						inner join (
+								SELECT TRIM(value) AS SerialJobNo
+								FROM STRING_SPLIT(
+									REPLACE(' + @serialjobnos + ', '''''''', ''''),
+									'',''
+								)
+						) as F
+						ON B.SerialJobNo = F.SerialJobNo
+					) as J
+						ON L.SerialJobNo=J.SerialJobNo
+					where ISNULL(L.isengage,0)>0
+					and ISNULL(L.InventoryManagement_invoice_master_item_id,0) in (1,2,3,5)
+					and ISNULL(L.[action],'''')=''Issue JobNo''	
+					group by						
+						 J.jid
+						,L.SerialJobNo
+						,L.InventoryManagement_invoice_master_item_id
+						,L.master_itemname
+						,L.materialtypeid
+						,L.materialtypename
+						,L.shapeid
+						,L.shape		
+						,L.Qualityid
+						,L.Quality					
+						,L.color
+						,L.size	
+						,ISNULL(L.INV_findingtypename,'''')
+						,ISNULL(L.INV_findingAccessories,'''')
+					
+				END
+				ELSE
+				BEGIN
+					SELECT 
+						 1 as stat
+						,''Certain jewellery jobs are invalid and require your attention!'' as stat_msg
+						,1001 as stat_code
+						,''null'' as device_token
+				END
+			';
+		
+		PRINT(@SQL)
+		PRINT(@SQL1)
+		PRINT(@SQL2)
+		EXEC(@SQL+@SQL1+@SQL2)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'valdbags')
+	BEGIN
+		SET @SQL = '
+				DECLARE 
+					 @validjobs AS NVARCHAR(MAX)=''''
+					,@invalidjobs AS NVARCHAR(MAX)=''''
+					,@_validjobs AS NVARCHAR(MAX)=''''
+					,@_invalidjobs AS NVARCHAR(MAX)='''';
+
+				WITH InputList AS (
+					SELECT TRIM(value) AS rfbag
+					FROM STRING_SPLIT(
+							REPLACE(' + @rfbags + ', '''''''', ''''),
+							'',''
+					)
+				)
+				SELECT 	
+					 @validjobs=STRING_AGG(IIF(s.rfbag IS NOT NULL ,i.rfbag,''''),'','')
+					,@invalidjobs=STRING_AGG(IIF(s.rfbag IS NOT NULL ,'''',i.rfbag),'','')				
+				FROM InputList i
+				LEFT JOIN ['+@DBNAME+'].dbo.inventorymanagement_invoice s WITH (NOLOCK)
+				   ON s.rfbag = i.rfbag
+				   AND s.isstockonhand='+convert(nvarchar(20),@isstockonhand)+';
+
+
+				SELECT 
+					@_validjobs=STRING_AGG(value, '','')
+				FROM STRING_SPLIT(@validjobs, '','')
+				WHERE LTRIM(RTRIM(value)) <> '''';
+
+				SELECT 
+					@_invalidjobs=STRING_AGG(value, '','')
+				FROM STRING_SPLIT(@invalidjobs, '','')
+				WHERE LTRIM(RTRIM(value)) <> '''';
+
+				SELECT
+					ISNULL(@_validjobs,'''') AS validjobs
+					,ISNULL(@_invalidjobs,'''') AS invalidjobs
+			'
+		SET @SQL1 = '
+				IF(ISNULL(@_invalidjobs,'''')='''')
+				BEGIN
+					declare @_defcompid as int=0
+					select top(1) 
+						@_defcompid=id 
+					from ['+@DBNAME+'].dbo.Usermanagement_systemloginmaster with (nolock)
+					where isnull(isDefaultCustomer,0)=1
+
+					select 
+						 B.rfbag					
+						,B.master_item_id as itemid
+						,isnull(B.materialtypeid,0) as materialtypeid 
+						,isnull(B.materialtypename,'''') as materialtypename
+						,B.shapeid
+						,B.shape
+						,B.Qualityid
+						,B.Quality
+						,B.colorid
+						,B.color
+						,isnull(B.Size,'''') as Size
+						,isnull(B.diamond_Custome_Size,'''') as customesize
+						,isnull(B.master_findingtype_id,0) as findingtypeid
+						,isnull(B.findingtypename,'''') as findingtypename
+						,isnull(B.findingAccessoriesId,0) as findingAccessoriesid
+						,isnull(B.findingAccessories,'''') as findingAccessories
+						,isnull(B.TotalRemainingWeight,0) as wt
+						,isnull(B.TotalRemainingPcs,0) as pcs
+						,iif(isnull(B.istoreCust_ID,0)=convert(nvarchar(20),@_defcompid),''company'',''customer'') as supplier						
+					from ['+@DBNAME+'].dbo.inventorymanagement_invoice as B with (nolock)
+					inner join (
+							SELECT TRIM(value) AS rfbag
+							FROM STRING_SPLIT(
+									REPLACE(' + @rfbags + ', '''''''', ''''),
+									'',''
+							)
+					) as F
+					ON B.rfbag = F.rfbag
+					
+					
+				END
+				ELSE
+				BEGIN
+					SELECT 
+						 1 as stat
+						,''Certain raw material bags are invalid and require your attention.!'' as stat_msg
+						,1001 as stat_code
+						,''null'' as device_token
+				END
+			';
+		
+		PRINT(@SQL)
+		PRINT(@SQL1)
+		EXEC(@SQL+@SQL1)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'returnall')
+	BEGIN
+		SET @SQL = '				
+				update I
+				set  I.[diamondctw]=IIF(isnull(I.master_item_id,0)=3,isnull(I.[diamondctw],0)+isnull(L.Issweight,0),isnull(I.[diamondctw],0))
+					,I.[diamondpcs]=IIF(isnull(I.master_item_id,0)=3,isnull(I.[diamondpcs],0)+isnull(L.Isspcs,0),isnull(I.[diamondpcs],0))
+					,I.[fancystonectw]=IIF(isnull(I.master_item_id,0) in (4,7),isnull(I.[fancystonectw],0)+isnull(L.Issweight,0),isnull(I.[fancystonectw],0))		
+					,I.[fancystonepcs]=IIF(isnull(I.master_item_id,0) in (4,7),isnull(I.[fancystonepcs],0)+isnull(L.Isspcs,0),isnull(I.[fancystonepcs],0))
+					,I.[findingctw]=IIF(isnull(I.master_item_id,0)=5,isnull(I.[findingctw],0)+isnull(L.Issweight,0),isnull(I.[findingctw],0))
+					,I.[findingpcs]=IIF(isnull(I.master_item_id,0)=5,isnull(I.[findingpcs],0)+isnull(L.Isspcs,0),isnull(I.[findingpcs],0))
+					,I.[TotalRemainingWeight]=isnull(I.[TotalRemainingWeight],0)+isnull(L.Issweight,0)
+					,I.[TotalRemainingPcs]=isnull(I.[TotalRemainingPcs],0)+isnull(L.Isspcs,0)	
+				from ['+@DBNAME+'].[dbo].InventoryManagement_invoice as I
+				INNER JOIN (
+					select 
+						InventoryManagement_invoice_rfbag as rfbag
+						,SUM(isnull(InventoryManagement_invoice_Issweight,0)) as Issweight	
+						,SUM(isnull(InventoryManagement_invoice_Isspcs,0)) as Isspcs
+					from ['+@DBNAME+'].[dbo].TransactionLogmanagement_ProductionUpdateLog with (nolock)
+					where id in (' + @txnid + ')
+					group by InventoryManagement_invoice_rfbag
+				) as L
+				ON I.rfbag=L.rfbag 
+				'
+			SET @SQL1 = '
+				INSERT INTO ['+@DBNAME+'].[dbo].[raw_material_history]
+					([EntryDate]
+					,[InvoiceDate]
+					,[Eventname]
+					,[Invoice]
+					,[opening]
+					,[Inward]
+					,[Outward]
+					,[rfbagno]
+					,[customercode]
+					,[loginuserid]
+					)
+				select 
+					isnull([dbo].[UTC_CSERVERLOCAL](getdate()),getdate())
+					,isnull([dbo].[UTC_CSERVERLOCAL](getdate()),getdate())
+					,CONCAT(''Extra Remain (From '', InventoryManagement_invoice_rfbag, '')'')
+					,id as Invoice
+					,0 as opening
+					,InventoryManagement_invoice_Issweight as Inward
+					,0 as Outward
+					,InventoryManagement_invoice_rfbag as torfbag
+					,INV_istoreCust_Customercode as customercode
+					,'''+@appuserid+''' as loginuserid
+				from ['+@DBNAME+'].[dbo].TransactionLogmanagement_ProductionUpdateLog with (nolock)
+				where id in (' + @txnid + ')
+
+				delete from ['+@DBNAME+'].[dbo].TransactionLogmanagement_ProductionUpdateLog
+				where id in (' + @txnid + ')
+
+				SELECT 
+					1 as stat
+					,''returned jewellery engaged materials successfully !'' as stat_msg
+					,1002 as stat_code
+					,''null'' as device_token
+			';
+		
+		PRINT(@SQL)		
+		PRINT(@SQL1)	
+		EXEC(@SQL+@SQL1)
+	END
+	ELSE IF(ISNULL(@mode,'') = 'engagesave')
+	BEGIN
+		DECLARE 
+			@schedular_token AS NVARCHAR(24)=
+						LEFT(
+							CONVERT(varchar(64),
+									HASHBYTES('SHA2_256', CONVERT(varchar(36), NEWID())),
+									2),
+							24
+						)
+		;
+
+
+		SET @SQL='
+			INSERT INTO ['+@DBNAME+'].[dbo].[bulkEngDetail]
+			(
+				[entrydate]
+				,[jid]
+				,[qid]
+				,[eid]
+				,[rfbag]
+				,[wt]
+				,[pcs]
+				,[txnid]
+				,[appuserid]
+				,[schedular_token]
+			)
+			SELECT 
+				isnull([dbo].[UTC_CSERVERLOCAL](getdate()),getdate())
+				,jid
+				,qid
+				,eid
+				,rfbag
+				,wt	
+				,pcs
+				,txnid
+				,'''+@appuserid+'''
+				,'''+@schedular_token+'''
+			FROM OPENJSON('''+@p+''', ''$.data'')
+			WITH (
+				jid NVARCHAR(20),
+				qid NVARCHAR(20),
+				eid NVARCHAR(20),
+				rfbag NVARCHAR(20),
+				wt DECIMAL(18,2),
+				pcs INT,
+				txnid INT
+			);
+			
+			INSERT INTO ['+@DBNAME+'].[dbo].[bulkEngDetail_Schedular]
+				([entrydate]
+				,[userid]
+				,[ipaddress]
+				,[formname]
+				,[schedular_token])
+			VALUES
+			(	isnull([dbo].[UTC_CSERVERLOCAL](getdate()),getdate())
+				,'''+@appuserid+'''
+				,'''+@IPAddress+'''
+				,'''+@FormName+'''
+				,'''+@schedular_token+'''
+			)
+
+
+			SELECT 
+				1 as stat
+				,''the jewellery materials have been successfully engaged!'' as stat_msg
+				,1002 as stat_code
+				,''null'' as device_token			
+
+		'	
+		print (@SQL)
+		EXEC (@SQL)
+
+		SET @SQL='
+			exec ['+@DBNAME+'].dbo.[bulkEngProcess] 
+							 '''+@schedular_token+'''
+							,'''+@appuserid+'''
+							,'''+@IPAddress+'''
+							,'''+@FormName+'''
+		'
+		print (@SQL)
+		EXEC (@SQL)
+	END
+	ELSE
+	BEGIN
+		SELECT -1 as stat 
+		,'Invalid Mode' as stat_msg
+	END
+	
+
+			
+END
+
+--------------------------------------------------------------------------------------------------------------	
+Execute [GetTxLog] @spname,@FromDate,@DBNAME,@appuserid,@IPAddress,@FormName,'ProTxn',@mode
+END TRY
+BEGIN CATCH	
+	SELECT 
+		0 as stat
+		,'"Contact your Admin"' as stat_msg
+		,1001 as stat_code
+		,'null' as device_token
+	
+	EXECUTE [GetErrlog] @appuserid,@FromDate,@DBNAME,@spname,@IPAddress,@FormName,'ProTxn',@mode;
+END CATCH;
+END

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  Gem, Palette, Wrench, Package, ScanLine, Plus,
+  Gem, Palette, Wrench, Stone, Package, ScanLine, Plus,
   CheckCircle2, AlertCircle, X, Info, Save, Pencil, RotateCcw,
 } from 'lucide-react';
 import Button from '@mui/material/Button';
@@ -14,6 +14,7 @@ import { getMaster, isMasterKey } from '../../../Utils/masterStore';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 const norm = (s) => String(s ?? '').trim().toUpperCase();
+const isSolitaire = (m) => Number(m?.is_sol_gem) === 1;
 const getSession = (key) => { if (isMasterKey(key)) return getMaster(key, []); try { const r = sessionStorage.getItem(key); return r ? JSON.parse(r) : []; } catch { return []; } };
 
 const getEngagedTotals = (AllEngagedMaterial, jobNosOrStr, row) => {
@@ -22,6 +23,7 @@ const getEngagedTotals = (AllEngagedMaterial, jobNosOrStr, row) => {
     if (!e.isengage) return false;
     if (!jobNos.some(j => norm(e.serialjobno) === norm(j))) return false;
     if (e.itemid !== row.itemid) return false;
+    if (isSolitaire(row) !== isSolitaire(e)) return false;
     if (row.itemid === 5) {
       return norm(e.findingtypename || '') === norm(row.findingtypename || '') &&
         norm(e.findingAccessories || '') === norm(row.findingAccessories || '');
@@ -40,40 +42,51 @@ const getEngagedTotals = (AllEngagedMaterial, jobNosOrStr, row) => {
     matches.map((e) => e.txnid).filter((t) => t !== undefined && t !== null && t !== '')
   )];
   const txnid = txnids.length ? txnids.join(',') : null;
-  return { pcs, wt, txnid };
+  const rfbags = [...new Set(
+    matches.map((e) => e.rfbag).filter((b) => b !== undefined && b !== null && b !== '')
+  )];
+  const rfbag = rfbags.length ? rfbags.join(', ') : null;
+  return { pcs, wt, txnid, rfbag };
 };
 
 
 const findMatchingBag = (line, scannedBags) =>
   scannedBags.find(
     (b) =>
+      b.itemid === line.itemid &&
+      isSolitaire(b) === isSolitaire(line) &&
       norm(b.shape) === norm(line.shape) &&
       norm(b.quality) === norm(line.Quality) &&
       norm(b.color_name) === norm(line.color) &&
-      norm(b.size) === norm(line.size)
+      norm(b.size) === norm(line.size) &&
+      (!isSolitaire(line) || !line.stone_uniqueno || !b.stone_uniqueno ||
+        norm(b.stone_uniqueno) === norm(line.stone_uniqueno))
   ) || null;
 
 const findBagById = (id, pool) =>
   pool.find((b) => norm(b.rfbag) === norm(id) || norm(b.rfbag).endsWith(norm(id))) || null;
 
-const matColor = (item = '') => {
+const matColor = (item = '', isSol = false) => {
   const u = item.toUpperCase();
+  if (u.includes('DIAMOND:S')) return '#6343f1';
   if (u.includes('DIAMOND')) return '#e91e63';
   if (u.includes('COLORSTONE')) return '#9c27b0';
   if (u.includes('FINDING') || u.includes('MISC')) return '#ff9800';
   return '#607d8b';
 };
 
-const matIcon = (item = '', size = 13) => {
+const matIcon = (item = '', isSol = false, size = 13) => {
   const u = item.toUpperCase();
+  if (u.includes('DIAMOND:S')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING') || u.includes('MISC')) return <Wrench size={size} />;
   return <Package size={size} />;
 };
 
-const matLabel = (item = '') => {
+const matLabel = (item = '', isSol = false) => {
   const u = item.toUpperCase();
+  if (u.includes('DIAMOND:S')) return 'Diamond:S';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
@@ -81,19 +94,35 @@ const matLabel = (item = '') => {
 };
 
 const groupKey = (line) =>
-  `${norm(line.item)}|${norm(line.shape)}|${norm(line.Quality)}|${norm(line.color)}|${norm(line.size)}|${norm(line.findingtypename)}|${norm(line.findingAccessories)}`;
+  `${norm(line.item)}|${isSolitaire(line) ? '1' : '0'}|${norm(line.shape)}|${norm(line.Quality)}|${norm(line.color)}|${norm(line.size)}|${norm(line.findingtypename)}|${norm(line.findingAccessories)}`;
 
-const MATERIAL_ITEMID_MAP = { all: null, diamond: [3], colorstone: [4], misc: [7], findings: [5] };
+const MATERIAL_ITEMID_MAP = { all: null, diamond: [3], colorstone: [4], misc: [7], findings: [5], Solitore: [3] };
 
-const convertRawBagToScanned = (rawBag) => ({
-  id: rawBag.rfbag, label: rawBag.rfbag, rfbag: rawBag.rfbag,
-  itemid: rawBag.itemid,
-  type: rawBag.itemid === 3 ? 'Diamond' : rawBag.itemid === 4 ? 'Colorstone' : rawBag.itemid === 5 ? 'Finding' : 'Misc',
-  color: rawBag.itemid === 3 ? '#e91e63' : rawBag.itemid === 4 ? '#9c27b0' : '#ff9800',
-  shape: rawBag.shape, quality: rawBag.Quality, size: rawBag.Size,
-  wt: rawBag.wt, pcs: rawBag.pcs, supplier: rawBag.supplier,
-  color_name: rawBag.color, shapeid: rawBag.shapeid,
-});
+const materialTypeFilter = (m, materialType) => {
+  if (!materialType || materialType === 'all') return true;
+  if (materialType === 'Solitore') return m.itemid === 3 && isSolitaire(m);
+  if (materialType === 'diamond') return m.itemid === 3 && !isSolitaire(m);
+  if (materialType === 'colorstone') return m.itemid === 4;
+  if (materialType === 'misc') return m.itemid === 7;
+  if (materialType === 'findings') return m.itemid === 5;
+  const allowed = MATERIAL_ITEMID_MAP[materialType];
+  return !allowed || allowed.includes(m.itemid);
+};
+
+const convertRawBagToScanned = (rawBag) => {
+  const sol = isSolitaire(rawBag);
+  return {
+    id: rawBag.rfbag, label: rawBag.rfbag, rfbag: rawBag.rfbag,
+    itemid: rawBag.itemid,
+    is_sol_gem: rawBag.is_sol_gem || 0,
+    stone_uniqueno: rawBag.stone_uniqueno || '',
+    type: sol ? 'Diamond:S' : (rawBag.itemid === 3 ? 'Diamond' : rawBag.itemid === 4 ? 'Colorstone' : rawBag.itemid === 5 ? 'Finding' : 'Misc'),
+    color: sol ? '#6343f1' : (rawBag.itemid === 3 ? '#e91e63' : rawBag.itemid === 4 ? '#9c27b0' : '#ff9800'),
+    shape: rawBag.shape, quality: rawBag.Quality, size: rawBag.Size,
+    wt: rawBag.wt, pcs: rawBag.pcs, supplier: rawBag.supplier,
+    color_name: rawBag.color, shapeid: rawBag.shapeid,
+  };
+};
 
 /**
  * Build merged material rows from scannedJobMaterialData.
@@ -101,14 +130,15 @@ const convertRawBagToScanned = (rawBag) => ({
  */
 const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialType = 'all') => {
   const serials = new Set(scannedJobs.map((j) => norm(j.id)));
-  const allowedItemIds = MATERIAL_ITEMID_MAP[materialType] ?? null;
   const lines = ScannedMaterials
     .filter((d) => serials.has(norm(d.SerialJobNo)))
-    .filter((d) => !allowedItemIds || allowedItemIds.includes(d.itemid));
+    .filter((d) => materialTypeFilter(d, materialType));
 
   const map = new Map();
   lines.forEach((line) => {
-    const key = groupKey(line);
+    // One row per JOB + spec — do NOT combine the same spec across jobs.
+    // (Lines that share the same spec WITHIN a single job are still merged.)
+    const key = `${norm(line.SerialJobNo)}||${groupKey(line)}`;
     if (!map.has(key)) {
       const autoMatch = ScannedBags.find(b => b.qid === line.qid && b.jid === line.jid) ||
         findMatchingBag(line, ScannedBags);
@@ -122,8 +152,10 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
       } : null;
       map.set(key, {
         rowKey: key,
-        item: line.item || '',
+        item: line.item || (isSolitaire(line) ? 'DIAMOND:S' : ''),
         itemid: line.itemid,
+        is_sol_gem: line.is_sol_gem || 0,
+        stone_uniqueno: line.stone_uniqueno || '',
         MaterialTypeName: line.MaterialTypeName || '',
         shape: line.shape || '',
         quality: line.Quality || '',
@@ -154,7 +186,7 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
   return [...map.values()];
 };
 
-const FILTERS = ['ALL', 'Diamond', 'Colorstone', 'Finding'];
+const FILTERS = ['ALL', 'Diamond', 'Colorstone', 'Finding', 'MISC'];
 
 // ─── Add Material Modal ───────────────────────────────────────────────────────
 const AddMaterialModal = ({ onAdd, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName }) => {
@@ -257,7 +289,7 @@ const AddMaterialModal = ({ onAdd, onClose, scannedBags, AllBagListData, scanned
               <div>
                 <strong>{found.rfbag}</strong>
                 <span>{found.shape} · {found.quality} · {found.color_name} · {found.size}</span>
-                <span>Stock: {found.pcs} pcs / {Number(found.wt).toFixed(3)} ct</span>
+                <span>Stock: {found.pcs} pcs / {Number(found.wt).toFixed(3)} ctw</span>
                 {found.findingtypename && (
                   <span>{found.findingtypename}{found.findingAccessories ? ` · ${found.findingAccessories}` : ''}</span>
                 )}
@@ -313,8 +345,8 @@ const ReturnModal = ({ rows, inputs, onSave, onUnlock, onClose }) => {
                   <tr key={row.rowKey} className="bmw__row">
                     <td className="bmw__td bmw__td--sr">{idx + 1}</td>
                     <td className="bmw__td bmw__td--type">
-                      <span className="bmw__mat" style={{ color: matColor(row.item) }}>
-                        {matIcon(row.item)}{matLabel(row.item)}
+                      <span className="bmw__mat" style={{ color: matColor(row.item, isSolitaire(row)) }}>
+                        {matLabel(row.item, isSolitaire(row))}
                       </span>
                     </td>
                     <td
@@ -362,7 +394,7 @@ const ReturnModal = ({ rows, inputs, onSave, onUnlock, onClose }) => {
   );
 };
 
-const BulkMaterialWise = ({ state, actions }) => {
+const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
   const [sessionData] = useState(() => ({
     ScannedMaterials: getSession('scannedJobMaterialData'),
     ScannedBags: getSession('scannedBagData'),
@@ -384,19 +416,9 @@ const BulkMaterialWise = ({ state, actions }) => {
   const [filter, setFilter] = useState('ALL');
   const [autoFill, setAutoFill] = useState(true);
   const [inputs, setInputs] = useState(() => {
-    const saved = state.jobEntries?.['bulk-material'];
-    if (saved?.bags?.length) {
-      const init = {};
-      saved.bags.forEach(b => {
-        if (b.rowKey) init[b.rowKey] = { pcs: String(b.pcs ?? ''), cwt: String(b.wt ?? '') };
-      });
-      // ← restore txnid onto baseRows from saved bags
-      baseRows.forEach(r => {
-        const savedBag = saved.bags.find(b => b.rowKey === r.rowKey);
-        if (savedBag?.txnid) r.txnid = savedBag.txnid;
-      });
-      return init;
-    }
+    // 1) Build the baseline for every row from engaged totals (locked, committed
+    //    data) or the required amount for a freshly-bagged row. This ALWAYS runs
+    //    so values are shown even when saved data uses stale row keys.
     const init = {};
     baseRows.forEach((r) => {
       const engaged = getEngagedTotals(AllEngagedMaterial, r.jobNos || [], r);
@@ -410,15 +432,30 @@ const BulkMaterialWise = ({ state, actions }) => {
         init[r.rowKey] = { pcs: bag ? String(r.reqPcs) : '', cwt: bag ? r.reqWt.toFixed(3) : '' };
       }
     });
+    // 2) Overlay any previously-saved values, but only where the rowKey still
+    //    matches a current row (stale keys are ignored, keeping the baseline).
+    const saved = state.jobEntries?.['bulk-material'];
+    if (saved?.bags?.length) {
+      saved.bags.forEach(b => {
+        if (b.rowKey && init[b.rowKey] !== undefined) {
+          init[b.rowKey] = { pcs: String(b.pcs ?? ''), cwt: String(b.wt ?? '') };
+        }
+        const r = baseRows.find(x => x.rowKey === b.rowKey);
+        if (r && b.txnid) r.txnid = b.txnid;
+      });
+    }
     return init;
   });
-  const [engagedUnlocked, setEngagedUnlocked] = useState(() => new Set());
+  // Rows the user has "Returned" → their Entry fields are disabled (locked).
+  const [returnedRows, setReturnedRows] = useState(() => new Set());
   const [engagedLocked, setEngagedLocked] = useState(() => {
-    if (state.jobEntries?.['bulk-material']?.bags?.length) return new Set();
     const locked = new Set();
     baseRows.forEach(r => {
       const engaged = getEngagedTotals(AllEngagedMaterial, r.jobNos || [], r);
-      if (engaged) locked.add(r.rowKey);
+      if (engaged) {
+        locked.add(r.rowKey);
+        r.engagedRfbag = engaged.rfbag ?? null;
+      }
     });
     return locked;
   });
@@ -451,8 +488,6 @@ const BulkMaterialWise = ({ state, actions }) => {
 
   const handleSaveAll = () => {
     if (Object.values(inputErrors).some(Boolean)) return;
-    // Block any bag-assigned row that has zero/blank weight — a 0 ct entry
-    // must never be saved.
     if (rows.some((r) => {
       const b = r.matchedBag || r.manualBag;
       return b && !engagedLocked.has(r.rowKey) && !(parseFloat(inputs[r.rowKey]?.cwt) > 0);
@@ -466,6 +501,8 @@ const BulkMaterialWise = ({ state, actions }) => {
         isUnusedBag: !(r.qids?.length),
         item: r.item,
         itemid: r.itemid,
+        is_sol_gem: r.is_sol_gem || 0,
+        stone_uniqueno: r.stone_uniqueno || '',
         MaterialTypeName: r.MaterialTypeName,
         shape: r.shape,
         quality: r.quality,
@@ -494,7 +531,10 @@ const BulkMaterialWise = ({ state, actions }) => {
       return {
         rowKey: r.rowKey, qid: r.qids?.[0] ?? null, jid: r.jids?.[0] ?? null,
         isUnusedBag: !(r.qids?.length),
-        item: r.item, itemid: r.itemid, rfbag: bag?.rfbag || null,
+        item: r.item, itemid: r.itemid,
+        is_sol_gem: r.is_sol_gem || 0,
+        stone_uniqueno: r.stone_uniqueno || '',
+        rfbag: bag?.rfbag || null,
         shape: r.shape, quality: r.quality, color: r.color, size: r.size,
         findingtypename: r.findingtypename || '',
         findingAccessories: r.findingAccessories || '',
@@ -514,15 +554,42 @@ const BulkMaterialWise = ({ state, actions }) => {
     setReturnModal(false);
   };
 
-  const handleReturnRow = (rowKey) => {
-    setEngagedLocked((prev) => { const next = new Set(prev); next.delete(rowKey); return next; });
-    setEngagedUnlocked((prev) => { const next = new Set(prev); next.add(rowKey); return next; });
+  // "Return" disables (locks) the row's Entry fields; clicking again ("Edit")
+  // re-enables them for editing.
+  const toggleReturnRow = (rowKey) => {
+    setReturnedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowKey)) next.delete(rowKey);
+      else next.add(rowKey);
+      return next;
+    });
   };
+
+  // Register save handler with parent so "Continue to Summary" persists data
+  const saveRef = useRef(handleSaveAll);
+  saveRef.current = handleSaveAll;
+  useEffect(() => {
+    if (onRegisterContinue) {
+      onRegisterContinue(() => saveRef.current());
+      return () => onRegisterContinue(null);
+    }
+  }, [onRegisterContinue]);
+
+  // Auto-save: persist automatically (debounced) whenever any entry changes,
+  // so no manual "Save" button is needed.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    const t = setTimeout(() => saveRef.current(), 400);
+    return () => clearTimeout(t);
+  }, [inputs, rows]);
 
   useEffect(() => {
     setInputs((prev) => {
       const next = { ...prev };
       rows.forEach((r) => {
+        // Engaged/locked rows hold committed data — never clobber them.
+        if (engagedLocked.has(r.rowKey)) return;
         const bag = r.matchedBag || r.manualBag;
         if (!bag) return;
         if (autoFill) {
@@ -560,8 +627,9 @@ const BulkMaterialWise = ({ state, actions }) => {
 
   // Add material from modal
   const handleAddMaterial = (bag) => {
-    const item = bag.itemid === 3 ? 'DIAMOND' : bag.itemid === 4 ? 'COLORSTONE' : 'FINDING';
-    const key = `${norm(item)}|${norm(bag.shape)}|${norm(bag.quality)}|${norm(bag.color_name)}|${norm(bag.size)}`;
+    const bagIsSol = isSolitaire(bag);
+    const item = bagIsSol ? 'DIAMOND:S' : (bag.itemid === 3 ? 'DIAMOND' : bag.itemid === 4 ? 'COLORSTONE' : 'FINDING');
+    const key = `${norm(item)}|${bagIsSol ? '1' : '0'}|${norm(bag.shape)}|${norm(bag.quality)}|${norm(bag.color_name)}|${norm(bag.size)}`;
 
     // If spec already exists, just assign this bag to that row
     const existing = rows.find((r) => r.rowKey === key);
@@ -583,6 +651,8 @@ const BulkMaterialWise = ({ state, actions }) => {
       rowKey: key,
       item,
       itemid: bag.itemid,
+      is_sol_gem: bag.is_sol_gem || 0,
+      stone_uniqueno: bag.stone_uniqueno || '',
       shape: bag.shape,
       quality: bag.quality,
       color: bag.color_name,
@@ -605,11 +675,11 @@ const BulkMaterialWise = ({ state, actions }) => {
   // Filter + group
   const filtered = filter === 'ALL'
     ? rows
-    : rows.filter((r) => matLabel(r.item) === filter);
+    : rows.filter((r) => matLabel(r.item, isSolitaire(r)) === filter);
 
   const grouped = filtered.reduce((acc, r) => {
-    const k = matLabel(r.item).toUpperCase();
-    if (!acc[k]) acc[k] = { item: r.item, rows: [] };
+    const k = matLabel(r.item, isSolitaire(r)).toUpperCase();
+    if (!acc[k]) acc[k] = { item: r.item, isSol: isSolitaire(r), rows: [] };
     acc[k].rows.push(r);
     return acc;
   }, {});
@@ -682,11 +752,11 @@ const BulkMaterialWise = ({ state, actions }) => {
             </div>
             <div className="bmw__summary-cell">
               <span className="bmw__summary-val">{totReq.toFixed(3)}</span>
-              <span className="bmw__summary-lbl">Req. CWT</span>
+              <span className="bmw__summary-lbl">Req. CTW / Gms</span>
             </div>
             <div className="bmw__summary-cell bmw__summary-cell--green">
               <span className="bmw__summary-val">{totEntry.toFixed(3)}</span>
-              <span className="bmw__summary-lbl">Entry CWT</span>
+              <span className="bmw__summary-lbl">Entry CTW / Gms</span>
             </div>
           </div>
         </div>
@@ -706,25 +776,18 @@ const BulkMaterialWise = ({ state, actions }) => {
                   <th className="bmw__th bmw__th--type">Material / Bag</th>
                   <th className="bmw__th bmw__th--desc">Specification</th>
                   <th className="bmw__th bmw__th--jobs">Jobs</th>
-                  <th className="bmw__th bmw__th--req" colSpan={2}>Required</th>
-                  <th className="bmw__th bmw__th--entry" colSpan={2}>Entry</th>
-                </tr>
-                <tr className="bmw__thead-sub">
-                  <th colSpan={4}></th>
-                  <th className="bmw__th-sub">PCS</th>
-                  <th className="bmw__th-sub">CWT</th>
-                  <th className="bmw__th-sub bmw__th-sub--entry">PCS</th>
-                  <th className="bmw__th-sub bmw__th-sub--entry">CWT</th>
+                  <th className="bmw__th-sub">Req. PCS</th>
+                  <th className="bmw__th-sub">Req. CTW / Gms</th>
+                  <th className="bmw__th-sub bmw__th-sub--entry">Entry PCS</th>
+                  <th className="bmw__th-sub bmw__th-sub--entry">Entry CWT</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(grouped).map(([groupName, { item, rows: gRows }]) => (
+                {Object.entries(grouped).map(([groupName, { item, isSol, rows: gRows }]) => (
                   <React.Fragment key={groupName}>
-                    {/* Group header */}
                     <tr className="bmw__group-row">
                       <td colSpan={8}>
-                        <div className="bmw__group-label" style={{ '--gc': matColor(item) }}>
-                          <span className="bmw__group-icon">{matIcon(item, 12)}</span>
+                        <div className="bmw__group-label" style={{ '--gc': matColor(item, isSol) }}>
                           {groupName}
                         </div>
                       </td>
@@ -735,8 +798,8 @@ const BulkMaterialWise = ({ state, actions }) => {
                       const isAuto = !!row.matchedBag;
                       const inp = inputs[row.rowKey] || { pcs: '', cwt: '' };
                       const sr = srCounter++;
-                      const color = matColor(row.item);
-                      const isEngagedLockedRow = !isSaved && engagedLocked.has(row.rowKey);
+                      const color = matColor(row.item, isSolitaire(row));
+                      const isEngagedLockedRow = engagedLocked.has(row.rowKey);
 
                       return (
                         <tr
@@ -748,27 +811,29 @@ const BulkMaterialWise = ({ state, actions }) => {
 
                           {/* Material + bag (two-line chip: rfbag + owner badge, same as BulkSingleEntry) */}
                           <td className="bmw__td bmw__td--type" style={{ verticalAlign: 'top' }}>
-                            <span className="bmw__mat" style={{ color }}>
-                              {matIcon(row.item)}{matLabel(row.item)}
-                            </span>
-                            {bag ? (
-                              <span
-                                className={`bmw__chip bmw__chip--${isAuto ? 'auto' : 'manual'}`}
-                                style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}
-                              >
-                                <span>{isAuto ? '⚡' : '✋'} {bag.rfbag}</span>
+                            {row.engagedRfbag ? (
+                              <div className="bmw__engaged-lock-bag">
+                                <Package size={11} /> {row.engagedRfbag}
+                              </div>
+                            )
+                              : bag ? (
                                 <span
-                                  className={`bmw-owner-badge ${bag.iscompany == 1 ? 'bmw-owner-badge--company' : 'bmw-owner-badge--customer'}`}
+                                  className={`bmw__chip bmw__chip--${isAuto ? bag.iscompany == 1 ? 'autocomp' : 'autoccust' : 'manual'}`}
+                                  style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}
                                 >
-                                  {bag.iscompany == 1 ? 'Company' : 'Customer'}
+                                  <span>{bag.rfbag}</span>
+                                  <span
+                                    className={`bmw-owner-badge ${bag.iscompany == 1 ? 'bmw-owner-badge--company' : 'bmw-owner-badge--customer'}`}
+                                  >
+                                    {bag.iscompany == 1 ? 'Company' : 'Customer'}
+                                  </span>
                                 </span>
-                              </span>
-                            ) : (
-                              <span className="bmw__chip bmw__chip--none">No bag</span>
-                            )}
+                              ) : (
+                                <span className="bmw__chip bmw__chip--none">No bag</span>
+                              )}
                           </td>
 
-                          {/* Spec — word-wrap fixed so long specs don't overlap the next row */}
+                          {/* Spec — word-wrap fixed so long don't overlap the next row */}
                           <td
                             className="bmw__td bmw__td--desc"
                             style={{ verticalAlign: 'top', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35 }}
@@ -793,60 +858,76 @@ const BulkMaterialWise = ({ state, actions }) => {
 
                           {/* Entry + Available hint */}
                           {(() => {
-                            const isExhausted = !isEngagedLockedRow && !engagedUnlocked.has(row.rowKey) && bag && (bag.pcs ?? 0) <= 0 && (Number(bag.wt) ?? 0) <= 0;
+                            const isExhausted = !isEngagedLockedRow && bag && (bag.pcs ?? 0) <= 0 && (Number(bag.wt) ?? 0) <= 0;
                             const pcsErr = inputErrors[`${row.rowKey}-pcs`];
                             const cwtErr = inputErrors[`${row.rowKey}-cwt`];
+
+                            // ── Engaged row: editable by default. Clicking
+                            //    "Return" DISABLES (locks) the fields; clicking
+                            //    "Edit" re-enables them. ──
+                            if (isEngagedLockedRow) {
+                              const isReturned = returnedRows.has(row.rowKey);
+                              return (<>
+                                <td className="bmw__td bmw__td--entry" style={{ verticalAlign: 'top' }}>
+                                  <div className="bmw__entry-cell">
+                                    <input type="number"
+                                      className={`bmw__inp ${!isReturned ? 'bmw__inp--disabled' : pcsErr ? 'bmw__inp--error' : ''}`}
+                                      disabled={!isReturned}
+                                      value={inp.pcs}
+                                      onChange={(e) => handleInput(row.rowKey, 'pcs', e.target.value)} />
+                                  </div>
+                                </td>
+                                <td className="bmw__td bmw__td--entry" style={{ verticalAlign: 'top' }}>
+                                  <div className="bmw__entry-cell">
+                                    <input type="number" step="0.001"
+                                      className={`bmw__inp ${!isReturned ? 'bmw__inp--disabled' : cwtErr ? 'bmw__inp--error' : ''}`}
+                                      disabled={!isReturned}
+                                      value={inp.cwt}
+                                      onChange={(e) => handleInput(row.rowKey, 'cwt', e.target.value)} />
+                                    {!isReturned &&
+                                      <button className="bmw__return-btn" onClick={() => toggleReturnRow(row.rowKey)}>
+                                        Return
+                                      </button>
+                                    }
+                                  </div>
+                                </td>
+                              </>);
+                            }
+
                             return (<>
-                              <td className="bmw__td bmw__td--entry" style={{ position: 'relative', verticalAlign: 'top', borderRight: isEngagedLockedRow && '0px' }}>
-                                {isSaved
-                                  ? <span className="bmw__locked-val">{inp.pcs || '—'}</span>
-                                  : isEngagedLockedRow
-                                    ? <div className="bmw__engaged-lock">
-                                      <span className="bmw__engaged-val">{inp.pcs ?? '—'}</span>
-                                      <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
-                                        <button className="bmw__return-btn" onClick={() => handleReturnRow(row.rowKey)}
-                                          style={{ position: 'absolute', top: '25%', right: '-20px' }}
-                                        >
-                                          <RotateCcw size={9} /> Return
-                                        </button>
-                                      </div>
-                                    </div>
-                                    : isExhausted
-                                      ? <span className="bmw__exhausted-cell">Scan other bag</span>
-                                      : <div className="bmw__entry-cell">
-                                        <input type="number"
-                                          className={`bmw__inp ${!bag ? 'bmw__inp--disabled' : pcsErr ? 'bmw__inp--error' : ''}`}
-                                          placeholder={bag ? String(row.reqPcs) : 'No bag'}
-                                          disabled={!bag}
-                                          value={inp.pcs}
-                                          onChange={(e) => handleInput(row.rowKey, 'pcs', e.target.value)} />
-                                        {bag && <span className={`bmw__avl-hint ${pcsErr ? 'bmw__avl-hint--error' : ''}`}>
-                                          {pcsErr ? `Max ${bag.pcs}` : `Avl: ${bag.pcs}`}
-                                        </span>}
-                                      </div>
+                              <td className="bmw__td bmw__td--entry" style={{ position: 'relative', verticalAlign: 'top' }}>
+                                {isExhausted
+                                  ? <span className="bmw__exhausted-cell">Scan other bag</span>
+                                  : <div className="bmw__entry-cell">
+                                    <input type="number"
+                                      className={`bmw__inp ${!bag ? 'bmw__inp--disabled' : pcsErr ? 'bmw__inp--error' : ''}`}
+                                      placeholder={bag ? String(row.reqPcs) : 'No bag'}
+                                      disabled={!bag}
+                                      value={inp.pcs}
+                                      onChange={(e) => handleInput(row.rowKey, 'pcs', e.target.value)} />
+                                    {bag && <span className={`bmw__avl-hint ${pcsErr ? 'bmw__avl-hint--error' : ''}`}>
+                                      {pcsErr ? `Max ${bag.pcs}` : `Avl: ${bag.pcs}`}
+                                    </span>}
+                                  </div>
                                 }
                               </td>
                               <td className="bmw__td bmw__td--entry" style={{ verticalAlign: 'top' }}>
-                                {isSaved
-                                  ? <span className="bmw__locked-val">{inp.cwt || '—'}</span>
-                                  : isEngagedLockedRow
-                                    ? <span className="bmw__engaged-val">{inp.cwt ?? '—'}</span>
-                                    : isExhausted
-                                      ? <span className="bmw__exhausted-cell">0 stock</span>
-                                      : <div className="bmw__entry-cell">
-                                        <input type="number" step="0.001"
-                                          className={`bmw__inp ${!bag ? 'bmw__inp--disabled' : cwtErr ? 'bmw__inp--error' : ''}`}
-                                          placeholder={bag ? row.reqWt.toFixed(3) : 'No bag'}
-                                          disabled={!bag}
-                                          value={inp.cwt}
-                                          onChange={(e) => handleInput(row.rowKey, 'cwt', e.target.value)} />
-                                        {bag && <span className={`bmw__avl-hint ${cwtErr ? 'bmw__avl-hint--error' : ''}`}>
-                                          {(() => {
-                                            const rem = remainingCwtByRow[row.rowKey] ?? Number(bag.wt);
-                                            return cwtErr ? `Max ${Number(rem).toFixed(3)}` : `Avl: ${Number(rem).toFixed(3)}`;
-                                          })()}
-                                        </span>}
-                                      </div>
+                                {isExhausted
+                                  ? <span className="bmw__exhausted-cell">0 stock</span>
+                                  : <div className="bmw__entry-cell">
+                                    <input type="number" step="0.001"
+                                      className={`bmw__inp ${!bag ? 'bmw__inp--disabled' : cwtErr ? 'bmw__inp--error' : ''}`}
+                                      placeholder={bag ? row.reqWt.toFixed(3) : 'No bag'}
+                                      disabled={!bag}
+                                      value={inp.cwt}
+                                      onChange={(e) => handleInput(row.rowKey, 'cwt', e.target.value)} />
+                                    {bag && <span className={`bmw__avl-hint ${cwtErr ? 'bmw__avl-hint--error' : ''}`}>
+                                      {(() => {
+                                        const rem = remainingCwtByRow[row.rowKey] ?? Number(bag.wt);
+                                        return cwtErr ? `Max ${Number(rem).toFixed(3)}` : `Avl: ${Number(rem).toFixed(3)}`;
+                                      })()}
+                                    </span>}
+                                  </div>
                                 }
                               </td>
                             </>);
@@ -860,21 +941,6 @@ const BulkMaterialWise = ({ state, actions }) => {
             </table>
           )}
         </div>
-
-        {/* Save / Return row */}
-        {/* <div className="bmw__save-row">
-          {!isSaved ? (
-            <Button variant="contained" size="small" startIcon={<Save size={12} />}
-              className="bmw__save-btn" onClick={handleSaveAll}>
-              Save All
-            </Button>
-          ) : (
-            <Button variant="outlined" size="small" startIcon={<RotateCcw size={12} />}
-              className="bmw__return-btn" onClick={() => setReturnModal(true)}>
-              Return / Edit
-            </Button>
-          )}
-        </div> */}
       </div>
 
       {/* Summary sidebar */}
@@ -887,11 +953,11 @@ const BulkMaterialWise = ({ state, actions }) => {
           </div>
           <div className="bmw-sidebar__stat">
             <span className="bmw-sidebar__stat-val">{totReq.toFixed(3)}</span>
-            <span className="bmw-sidebar__stat-lbl">Required CWT</span>
+            <span className="bmw-sidebar__stat-lbl">Required CTW / Gms</span>
           </div>
           <div className="bmw-sidebar__stat bmw-sidebar__stat--green">
             <span className="bmw-sidebar__stat-val">{totEntry.toFixed(3)}</span>
-            <span className="bmw-sidebar__stat-lbl">Entry CWT</span>
+            <span className="bmw-sidebar__stat-lbl">Entry CTW / Gms</span>
           </div>
         </div>
         <div className="bmw-sidebar__groups">
@@ -901,14 +967,13 @@ const BulkMaterialWise = ({ state, actions }) => {
             return (
               <div key={groupName} className="bmw-sidebar__group">
                 <div className="bmw-sidebar__group-head">
-                  <span style={{ color: matColor(item), display: 'flex' }}>{matIcon(item, 13)}</span>
                   <strong>{groupName}</strong>
                   <span className="bmw-sidebar__group-count">{gBagged}/{gRows.length}</span>
                 </div>
                 <div className="bmw-sidebar__group-detail">
-                  <span>{gRows.length} specs</span>
+                  <span>{gRows.reduce((a,r) => a + r.reqPcs, 0)} pcs</span>
                   <span>&middot;</span>
-                  <span>{gReq.toFixed(3)} ct</span>
+                  <span>{gReq.toFixed(3)} {groupName == "FINDING" || groupName == "MISC" ? "gms" : 'ctw'}</span>
                 </div>
               </div>
             );

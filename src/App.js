@@ -10,6 +10,7 @@ import ScanEmployee from './pages/ScanEmployee/ScanEmployee';
 import SelectLocker from './pages/SelectLocker/SelectLocker';
 import SelectProcess from './pages/SelectProcess/SelectProcess';
 import ScanJobs from './pages/ScanJobs/ScanJobs';
+import JobVerification from './pages/JobVerification/JobVerification';
 import BagScanning from './pages/BagScanning/BagScanning';
 import MaterialEntry from './pages/MaterialEntry/MaterialEntry';
 import Summary from './pages/Summary/Summary';
@@ -152,6 +153,7 @@ function App() {
               <Route path="/" element={<ScanEmployee />} />
               <Route path="/select-locker" element={<SelectLocker />} />
               <Route path="/select-process" element={<SelectProcess />} />
+              <Route path="/job-verification" element={<JobVerification />} />
               <Route path="/scan-jobs" element={<ScanJobs />} />
               <Route path="/bag-scanning" element={<BagScanning />} />
               <Route path="/material-entry" element={<MaterialEntry />} />
@@ -168,4 +170,68 @@ function App() {
 export default App;
 
 
+// 1/9467
 // 1/9468
+
+
+
+
+			// select 
+			// 	 id as txnid
+			// 	,Modifieddate
+			// 	,serialjobno
+			// 	,isnull(InventoryManagement_invoice_rfbag,'') as rfbag
+			// 	,InventoryManagement_invoice_master_item_id as itemid
+			// 	,ISNULL(materialtypename,'') as materialtype
+			// 	,ISNULL(shape,'') as shape
+			// 	,ISNULL(Quality,'') as Quality
+			// 	,ISNULL(color,'') as color
+			// 	,ISNULL(Size,'') as Size
+			// 	,ISNULL(INV_findingtypename,'') as findingtypename
+			// 	,ISNULL(INV_findingAccessories,'') as findingAccessories
+			// 	,ISNULL(supplier,'')
+			// 	,ISNULL(INV_istoreCust_ID,0) as cid
+			// 	,ISNULL(INV_istoreCust_Customercode,'') as ccode
+			// 	,ISNULL(INV_istoreCust_CustName,'') as cname
+			// 	,ISNULL(InventoryManagement_invoice_Issweight,0) as isswt
+			// 	,ISNULL(InventoryManagement_invoice_Isspcs,0) as isspcs
+			// 	,isengage
+			// 	,iif(ISNULL(stone_uniqueno,'') <> '' ,1,0) as is_sol_gem
+			// from [orail25].dbo.TransactionLogmanagement_ProductionUpdateLog as tranprod with (nolock)
+			// --LEFT JOIN (SELECT certno,stone_uniqueno FROM orail25.dbo.sol_inv WITH (NOLOCK)) as  sol
+			// --ON tranprod.stone_uniqueno = sol.stone_uniqueno
+			// where isnull(isEngage,0)<>0
+			// and serialjobno = '1/9468'
+			// order by serialjobno
+		
+
+
+
+		
+			// declare @defcustid as int=isnull((
+			// 	select top(1) id 
+			// 	from [orail25].dbo.Usermanagement_systemloginmaster with (nolock)
+			// 	where isnull(isDefaultCustomer,0)=1
+			// ),0)
+
+			// select 
+			// 	master_item_id as itemid
+			// 	,rfbag
+			// 	,shape
+			// 	,Quality
+			// 	,color
+			// 	,Size
+			// 	,isnull(findingtypename,'') as findingtype
+			// 	,isnull(findingAccessories,'') as findingAccessories
+			// 	,ISNULL(TotalRemainingWeight,0) as remwt
+			// 	,ISNULL(TotalRemainingPcs,0) as rempcs
+			// 	,LockerName
+			// 	,istoreCust_ID
+			// 	,istoreCust_Customercode
+			// 	,istoreCust_CustName
+			// 	,iif(istorecust_id=@defcustid,1,0) as iscompany
+			// 	,stone_uniqueno
+			// from [orail25].dbo.InventoryManagement_invoice with (nolock)
+			// where master_item_id in (3,4,5,7)
+			// and isnull(rfbag,'')<>''
+			// order by master_item_id			

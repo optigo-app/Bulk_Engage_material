@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useEngage } from '../../context/EngageContext';
 import { ScanLine, User, BadgeCheck, ArrowRight } from 'lucide-react';
 import Button from '@mui/material/Button';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import './ScanEmployee.scss';
 import { useTheme } from '../../context/ThemeContext';
 import { Palette, Sun, Moon, RefreshCw } from 'lucide-react';
@@ -24,6 +26,19 @@ const ScanEmployee = () => {
   const { currentTheme, toggleSelector } = useTheme();
   const [, setIsLoading] = useRecoilState(isLoadingAtom);
   const [foundEmployee, setFoundEmployee] = useState(state.employee || null);
+
+  // Job Verification toggle — persisted in sessionStorage, defaults to false.
+  const [jobVerification, setJobVerification] = useState(() => {
+    try {
+      const v = sessionStorage.getItem('jobverification');
+      return v === null ? false : v === 'true';
+    } catch { return false; }
+  });
+  const handleJobVerificationChange = (e) => {
+    const val = e.target.checked;
+    setJobVerification(val);
+    try { sessionStorage.setItem('jobverification', String(val)); } catch { /* ignore */ }
+  };
 
 
   useEffect(() => {
@@ -159,6 +174,25 @@ const ScanEmployee = () => {
         <RefreshCw size={16} />
         <span>Refresh</span>
       </Button>
+
+      <div className="scan-employee__job-verify">
+        <FormControlLabel
+          className="scan-employee__job-verify-toggle"
+          control={
+            <Switch
+              checked={jobVerification}
+              onChange={handleJobVerificationChange}
+              size="small"
+              color="primary"
+            />
+          }
+          label="Job Verification"
+          labelPlacement="start"
+        />
+        <span className={`scan-employee__job-verify-state ${jobVerification ? 'scan-employee__job-verify-state--on' : ''}`}>
+          {jobVerification ? 'ON' : 'OFF'}
+        </span>
+      </div>
 
       <div className="scan-employee__header">
         <div className="scan-employee__step-badge">Step 1</div>

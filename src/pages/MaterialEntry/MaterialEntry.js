@@ -15,6 +15,7 @@ import SingleBulkEntry from './SingleBulkEntry/SingleBulkEntry';
 const MaterialEntry = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
+  const [onContinue, setOnContinue] = useState(null);
   useEffect(() => {
     actions.setStep(6);
   }, []);
@@ -41,9 +42,9 @@ const MaterialEntry = () => {
       ) : state.processSubType === 'single-bulk' ? (
         <SingleBulkEntry state={state} actions={actions} />
       ) : state.processSubType === 'bulk-single' ? (
-        <BulkSingleEntry state={state} actions={actions} />
+        <BulkSingleEntry state={state} actions={actions} onRegisterContinue={setOnContinue}/>
       ) :
-        <BulkMaterialWise state={state} actions={actions} />
+        <BulkMaterialWise state={state} actions={actions} onRegisterContinue={setOnContinue} />
       }
 
       <div className="material-entry__actions">
@@ -59,7 +60,7 @@ const MaterialEntry = () => {
           variant="contained"
           color="primary"
           size="large"
-          onClick={() => navigate('/summary')}
+          onClick={() => { onContinue?.(); navigate('/summary'); }}
           endIcon={<ArrowRight size={20} />}
           className="material-entry__continue-btn"
         >

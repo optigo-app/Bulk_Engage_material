@@ -10,6 +10,51 @@
     text-align: center;
   }
 
+  &__job-verify {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    background: #6366f1;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    position: absolute;
+    left: -50%;
+    top: 15px;
+    z-index: 999999;
+  }
+
+  &__job-verify-toggle {
+    &.MuiFormControlLabel-root {
+      margin: 0;
+      gap: 8px;
+      .MuiFormControlLabel-label {
+        font-size: 16px;
+        font-weight: 600;
+        color: white;
+      }
+    }
+
+    // White-themed switch
+    .MuiSwitch-switchBase {
+      color: rgba(255, 255, 255, 0.85) !important;
+      &.Mui-checked { color: #ffffff !important; }
+      &.Mui-checked + .MuiSwitch-track { background-color: rgba(255, 255, 255, 0.45) !important; }
+      & + .MuiSwitch-track { background-color: rgba(255, 255, 255, 0.3) !important; }
+    }
+    .MuiSwitch-thumb { background-color: #ffffff !important; }
+  }
+
+  &__job-verify-state {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: white;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
   &__step-badge {
     display: inline-block;
     padding: 4px 14px;
@@ -303,5 +348,20 @@
 
   .scan-employee{
     padding: 0px !important;
+  }
+
+  .scan-employee__job-verify {
+    left: -35%;
+  }
+}
+
+@media (max-width: 768px) {
+  .scan-employee__job-verify {
+    left: 8px;
+    top: 8px;
+    padding: 5px 10px;
+  }
+  .scan-employee__job-verify-toggle .MuiFormControlLabel-label {
+    font-size: 13px !important;
   }
 }

@@ -392,7 +392,7 @@ const ScanJobs = () => {
             onClick={() => navigate('/select-process')}
             startIcon={<ArrowLeft size={18} />}
             className="scan-jobs__back-btn"
-            ref={backBtnRef}
+            ref={continueBtnRef}
           >
             Back
           </Button>
@@ -404,7 +404,7 @@ const ScanJobs = () => {
             disabled={state.scannedJobs.length === 0}
             endIcon={<ArrowRight size={20} />}
             className="scan-jobs__continue-btn"
-            ref={continueBtnRef}
+            ref={backBtnRef}
           >
             Continue
           </Button>

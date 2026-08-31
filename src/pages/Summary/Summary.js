@@ -4,7 +4,7 @@ import { useEngage } from '../../context/EngageContext';
 import {
   ArrowLeft, ArrowRight, User, Lock, Layers, Package,
   ScanLine, CheckCircle2, Gem, Palette, Wrench,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Hash, Weight,
 } from 'lucide-react';
 import Button from '@mui/material/Button';
 import './Summary.scss';
@@ -21,195 +21,170 @@ const MATERIAL_LABELS = {
   diamond: 'Diamond',
   colorstone: 'Colorstone',
   misc: 'Misc / Findings',
-};
-
-const getMaterialIcon = (material, size = 14) => {
-  const m = (material || '').toLowerCase();
-  if (m.includes('diamond')) return <Gem size={size} />;
-  if (m.includes('colorstone')) return <Palette size={size} />;
-  if (m.includes('finding') || m.includes('misc')) return <Wrench size={size} />;
-  return <Package size={size} />;
+  Solitore: 'Diamond:S',
 };
 
 const getMaterialColor = (material) => {
   const m = (material || '').toLowerCase();
+  if (m.includes('solitore') || m.includes('solitaire')) return '#6343f1';
   if (m.includes('diamond')) return '#e91e63';
   if (m.includes('colorstone')) return '#9c27b0';
   if (m.includes('finding') || m.includes('misc')) return '#ff9800';
-  return '#607d8b';
+  return 'var(--primary-light)';
 };
 
-// Builds the material description. For findings, show finding type name /
-// accessories; for other materials, show shape · quality · color · size.
 const getMaterialDesc = (bag) => {
-  const findingPart = [bag.findingtypename, bag.findingAccessories]
-    .filter(Boolean)
-    .join(' · ');
-  const specPart = [bag.shape, bag.quality, bag.color, bag.size]
-    .filter(Boolean)
-    .join(' · ');
+  const findingPart = [bag.findingtypename, bag.findingAccessories].filter(Boolean).join(' · ');
+  const specPart = [bag.shape, bag.quality, bag.color, bag.size].filter(Boolean).join(' · ');
   return [findingPart, specPart].filter(Boolean).join(' · ') || bag.desc || '—';
 };
 
-// ─────────────────────────────────────────────────────────────
-// Collapsible Job Row
-// ─────────────────────────────────────────────────────────────
-const JobRow = ({ job, entries }) => {
+// ─── Bag Entry Row ────────────────────────────────────────────
+const BagEntryRow = ({ bag, idx }) => {
+  const color = getMaterialColor(bag.material);
+  const pcsOk = bag.reqPcs > 0 ? Number(bag.pcs) <= Number(bag.reqPcs) : true;
+  const wtOk = bag.reqWt > 0 ? Number(bag.wt) <= Number(bag.reqWt) : true;
+  const bagLabel = bag.rfbag || bag.bagNo || bag.bagId || `Bag ${idx + 1}`;
+
+  return (
+    <div className="sum-bag-entry">
+      {/* Left: bag id + material */}
+      <div className="sum-bag-entry__left">
+        <span className="sum-bag-entry__bagno">{bagLabel}</span>
+        <span className="sum-bag-entry__material" style={{ color }}>
+          {getMaterialDesc(bag)}
+        </span>
+      </div>
+
+      {/* Right: req vs entered */}
+      <div className="sum-bag-entry__right">
+        {/* Required */}
+        <div className="sum-bag-entry__stat-group sum-bag-entry__stat-group--req">
+          <span className="sum-bag-entry__stat-label">Req</span>
+          <span className="sum-bag-entry__stat-val">
+            {bag.reqPcs != null ? bag.reqPcs : '—'} pcs
+          </span>
+          <span className="sum-bag-entry__stat-val">
+            {bag.reqWt != null ? Number(bag.reqWt).toFixed(3) : '—'} ctw
+          </span>
+        </div>
+
+        {/* Divider */}
+        <div className="sum-bag-entry__divider" />
+
+        {/* Entered */}
+        <div className="sum-bag-entry__stat-group sum-bag-entry__stat-group--entered">
+          <span className="sum-bag-entry__stat-label sum-bag-entry__stat-label--entered">Entered</span>
+          <span className={`sum-bag-entry__stat-val sum-bag-entry__stat-val--entered ${!pcsOk ? 'sum-bag-entry__stat-val--over' : ''}`}>
+            {bag.pcs != null ? bag.pcs : '—'} pcs
+          </span>
+          <span className={`sum-bag-entry__stat-val sum-bag-entry__stat-val--entered ${!wtOk ? 'sum-bag-entry__stat-val--over' : ''}`}>
+            {bag.wt != null ? Number(bag.wt).toFixed(3) : '—'} ctw
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Job Card (collapsible) ───────────────────────────────────
+const JobCard = ({ job, entries, index }) => {
   const [open, setOpen] = React.useState(true);
   const jobPcs = entries.reduce((s, b) => s + (Number(b.pcs) || 0), 0);
   const jobWt = entries.reduce((s, b) => s + (Number(b.wt) || 0), 0);
+  const reqPcs = entries.reduce((s, b) => s + (Number(b.reqPcs) || 0), 0);
+  const reqWt = entries.reduce((s, b) => s + (Number(b.reqWt) || 0), 0);
+  const hasEntries = entries.length > 0;
 
   return (
-    <div className="sum-job-row">
-      {/* Job header */}
-      <div className="sum-job-row__header" onClick={() => setOpen((v) => !v)}>
-        <div className="sum-job-row__title">
-          <span className="sum-job-row__id">{job.id}</span>
-          {entries.length > 0 && (
-            <span className="sum-job-row__badge">{entries.length} bag{entries.length !== 1 ? 's' : ''}</span>
-          )}
-          {entries.length === 0 && (
-            <span className="sum-job-row__badge sum-job-row__badge--empty">No entries</span>
-          )}
+    <div className={`sum-job-card ${open ? 'sum-job-card--open' : ''}`}>
+      {/* Header */}
+      <div className="sum-job-card__header" onClick={() => setOpen(v => !v)}>
+        <div className="sum-job-card__header-left">
+          <span className="sum-job-card__index">#{index + 1}</span>
+          <div className="sum-job-card__id-block">
+            <span className="sum-job-card__id">{job.serialjobno || job.id}</span>
+            {job.design && <span className="sum-job-card__meta">{job.design}</span>}
+          </div>
+          <span className={`sum-job-card__badge ${!hasEntries ? 'sum-job-card__badge--empty' : ''}`}>
+            {hasEntries ? `${entries.length} bag${entries.length !== 1 ? 's' : ''}` : 'No entries'}
+          </span>
         </div>
 
-        <div className="sum-job-row__stats">
-          {entries.length > 0 && (
-            <>
-              <span className="sum-job-row__stat">
-                <strong>{jobPcs}</strong> pcs
-              </span>
-              <span className="sum-job-row__stat">
-                <strong>{jobWt.toFixed(3)}</strong> ct
-              </span>
-            </>
+        <div className="sum-job-card__header-right">
+          {hasEntries && (
+            <div className="sum-job-card__totals">
+              <div className="sum-job-card__total-pill">
+                <Hash size={11} />
+                <span>{jobPcs}<em>pcs</em></span>
+              </div>
+              <div className="sum-job-card__total-pill sum-job-card__total-pill--wt">
+                <Weight size={11} />
+                <span>{jobWt.toFixed(3)}<em>ctw</em></span>
+              </div>
+            </div>
           )}
-          <button className="sum-job-row__toggle">
+          <button className="sum-job-card__toggle" tabIndex={-1}>
             {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
       </div>
 
-      {/* Bag entries */}
-      {open && entries.length > 0 && (
-        <div className="sum-job-row__body">
-          {/* Column headers */}
-          <div className="sum-bag-header">
-            <span>Bag No.</span>
-            <span>Material</span>
-            <span className="sum-bag-header__num">Req PCS</span>
-            <span className="sum-bag-header__num">Req WT</span>
-            <span className="sum-bag-header__num entered">Entered PCS</span>
-            <span className="sum-bag-header__num entered">Entered WT</span>
-          </div>
+      {/* Body */}
+      {open && (
+        <div className="sum-job-card__body">
+          {!hasEntries ? (
+            <div className="sum-job-card__empty">No bag entries recorded for this job.</div>
+          ) : (
+            <>
+              {entries.map((bag, idx) => (
+                <BagEntryRow key={bag.rfbag || idx} bag={bag} idx={idx} />
+              ))}
 
-          {entries.map((bag, idx) => {
-            console.log('bag: ', bag);
-            const color = getMaterialColor(bag.material);
-            const pcsOk = bag.reqPcs > 0
-              ? Number(bag.pcs) <= Number(bag.reqPcs)
-              : true;
-            const wtOk = bag.reqWt > 0
-              ? Number(bag.wt) <= Number(bag.reqWt)
-              : true;
-
-            return (
-              <div key={bag.rfbag || idx} className="sum-bag-row">
-                {/* Bag No */}
-                <span className="sum-bag-row__rfbag">{bag.rfbag || bag.bagNo || bag.bagId || '—'}</span>
-
-                {/* Material icon + name */}
-                <span className="sum-bag-row__material" style={{ color }}>
-                  {getMaterialDesc(bag)}
-                </span>
-
-                {/* Required */}
-                <span className="sum-bag-row__num">
-                  {bag.reqPcs != null ? bag.reqPcs : '—'}
-                </span>
-                <span className="sum-bag-row__num">
-                  {bag.reqWt != null ? bag.reqWt : '—'}
-                </span>
-
-                {/* Entered PCS */}
-                <span className={`sum-bag-row__num sum-bag-row__entered ${pcsOk ? '' : 'sum-bag-row__entered--over'}`}>
-                  {bag.pcs != null ? bag.pcs : '—'}
-                </span>
-
-                {/* Entered WT */}
-                <span className={`sum-bag-row__num sum-bag-row__entered ${wtOk ? '' : 'sum-bag-row__entered--over'}`}>
-                  {bag.wt != null ? Number(bag.wt).toFixed(3) : '—'}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* Job totals row */}
-          <div className="sum-bag-row sum-bag-row--total">
-            <span className="sum-bag-row__rfbag">Total</span>
-            <span></span>
-            <span className="sum-bag-row__num">
-              {entries.reduce((s, b) => s + (Number(b.reqPcs) || 0), 0)}
-            </span>
-            <span className="sum-bag-row__num">
-              {entries.reduce((s, b) => s + (Number(b.reqWt) || 0), 0).toFixed(3)}
-            </span>
-            <span className="sum-bag-row__num sum-bag-row__entered">
-              {jobPcs}
-            </span>
-            <span className="sum-bag-row__num sum-bag-row__entered">
-              {jobWt.toFixed(3)}
-            </span>
-          </div>
+              {/* Totals footer */}
+              {entries.length > 1 && (
+                <div className="sum-job-card__footer">
+                  <span className="sum-job-card__footer-label">Job Total</span>
+                  <div className="sum-job-card__footer-vals">
+                    {reqPcs > 0 && (
+                      <span className="sum-job-card__footer-req">Req: {reqPcs} pcs · {reqWt.toFixed(3)} ctw</span>
+                    )}
+                    <span className="sum-job-card__footer-entered">{jobPcs} pcs · {jobWt.toFixed(3)} ctw</span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
-
-      {open && entries.length === 0 && (
-        <div className="sum-job-row__empty">No bag entries recorded for this job.</div>
       )}
     </div>
   );
 };
 
-// ─────────────────────────────────────────────────────────────
-// Main Summary Component
-// ─────────────────────────────────────────────────────────────
+// ─── Main Summary ─────────────────────────────────────────────
 const Summary = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
-  console.log('state: ', state);
-
-  useEffect(() => {
-    actions.setStep(7);
-  }, []);
-
-  // ── Computed totals ──
-  const allBags = Object.values(state.jobEntries || {}).flatMap(
-    (job) => job.bags || []
-  );
-
+  const jobverification = sessionStorage.getItem('jobverification');
+  useEffect(() => { actions.setStep(7); }, []); // eslint-disable-line
+  const allBags = Object.values(state.jobEntries || {}).flatMap(job => job.bags || []);
   const totalJobs = state.scannedJobs?.length || 0;
   const totalBags = allBags.length;
-  const totalEntries = totalBags;
   const totalPcs = allBags.reduce((s, b) => s + (Number(b.pcs) || 0), 0);
   const totalWt = allBags.reduce((s, b) => s + (Number(b.wt) || 0), 0);
-
-  // ── Material breakdown ──
-  const byMaterial = allBags.reduce((acc, bag) => {
-    const key = bag.material || 'Unknown';
-    if (!acc[key]) acc[key] = { pcs: 0, wt: 0, count: 0 };
-    acc[key].pcs += Number(bag.pcs) || 0;
-    acc[key].wt += Number(bag.wt) || 0;
-    acc[key].count += 1;
-    return acc;
-  }, {});
 
   const processLabel = PROCESS_LABELS[state.processSubType] || state.processSubType || '—';
   const materialLabel = MATERIAL_LABELS[state.materialType] || state.materialType || '—';
 
+  const getJobEntries = (job) => {
+    const perJob = state.jobEntries?.[job.id]?.bags;
+    if (perJob?.length) return perJob;
+    return (state.jobEntries?.['bulk-material']?.bags || [])
+      .filter(b => String(b.jid) === String(job.jid ?? '') || (b.rowKey && job.id));
+  };
+
   return (
     <div className="summary page-enter">
-
       {/* ── Header ── */}
       <div className="summary__header">
         <div className="summary__step-badge">Step 7</div>
@@ -217,94 +192,74 @@ const Summary = () => {
         <p className="summary__desc">Review all details before final processing</p>
       </div>
 
-      {/* ── Info Cards ── */}
-      <div className="summary__cards-grid">
-        <div className="summary__card">
-          <div className="summary__card-icon summary__card-icon--blue">
-            <User size={18} />
-          </div>
-          <div className="summary__card-content">
-            <span className="summary__card-label">Employee</span>
+      {/* ── Info Strip ── */}
+      <div className="summary__info-strip">
+        <div className="summary__info-item">
+          <div className="summary__info-icon summary__info-icon--blue"><User size={15} /></div>
+          <div className="summary__info-text">
+            <span>Employee</span>
             <strong>{state.employee?.name || 'N/A'}</strong>
-            <span className="summary__card-sub">{state.employee?.code || ''}</span>
           </div>
         </div>
-
-        <div className="summary__card">
-          <div className="summary__card-icon summary__card-icon--green">
-            <Lock size={18} />
-          </div>
-          <div className="summary__card-content">
-            <span className="summary__card-label">Locker</span>
+        <div className="summary__info-sep" />
+        <div className="summary__info-item">
+          <div className="summary__info-icon summary__info-icon--green"><Lock size={15} /></div>
+          <div className="summary__info-text">
+            <span>Locker</span>
             <strong>{state.locker?.name || 'N/A'}</strong>
-            <span className="summary__card-sub">{state.locker?.code || ''}</span>
           </div>
         </div>
-
-        <div className="summary__card">
-          <div className="summary__card-icon summary__card-icon--orange">
-            <Layers size={18} />
-          </div>
-          <div className="summary__card-content">
-            <span className="summary__card-label">Process</span>
+        <div className="summary__info-sep" />
+        <div className="summary__info-item">
+          <div className="summary__info-icon summary__info-icon--orange"><Layers size={15} /></div>
+          <div className="summary__info-text">
+            <span>Process</span>
             <strong>{processLabel}</strong>
-            <span className="summary__card-sub">{materialLabel}</span>
+          </div>
+        </div>
+        <div className="summary__info-sep" />
+        <div className="summary__info-item">
+          <div className="summary__info-icon summary__info-icon--purple"><Package size={15} /></div>
+          <div className="summary__info-text">
+            <span>Material</span>
+            <strong>{materialLabel}</strong>
           </div>
         </div>
 
-        <div className="summary__card">
-          <div className="summary__card-icon summary__card-icon--purple">
-            <Package size={18} />
+        {/* Totals inline */}
+        <div className="summary__info-sep summary__info-sep--spacer" />
+        <div className="summary__stat-pills">
+          <div className="summary__stat-pill">
+            <ScanLine size={13} />
+            <span>{totalJobs} Job{totalJobs !== 1 ? 's' : ''}</span>
           </div>
-          <div className="summary__card-content">
-            <span className="summary__card-label">Stats</span>
-            <strong>{totalJobs} Job{totalJobs !== 1 ? 's' : ''}</strong>
-            <span className="summary__card-sub">{totalBags} Bag{totalBags !== 1 ? 's' : ''} · {totalEntries} Entries</span>
+          <div className="summary__stat-pill">
+            <Package size={13} />
+            <span>{totalBags} Bag{totalBags !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="summary__stat-pill">
+            <Hash size={13} />
+            <span>{totalPcs} PCS</span>
+          </div>
+          <div className="summary__stat-pill summary__stat-pill--highlight">
+            <Weight size={13} />
+            <span>{totalWt.toFixed(3)} ctw</span>
           </div>
         </div>
       </div>
 
-      {/* ── Grand Totals Bar ── */}
-      <div className="summary__totals">
-        <div className="summary__total-item">
-          <ScanLine size={16} />
-          <span>Total Jobs</span>
-          <strong>{totalJobs}</strong>
-        </div>
-        <div className="summary__total-item">
-          <Package size={16} />
-          <span>Total Bags</span>
-          <strong>{totalBags}</strong>
-        </div>
-        <div className="summary__total-item">
-          <CheckCircle2 size={16} />
-          <span>Total PCS</span>
-          <strong>{totalPcs}</strong>
-        </div>
-        <div className="summary__total-item summary__total-item--highlight">
-          <CheckCircle2 size={16} />
-          <span>Total WT (ct)</span>
-          <strong>{totalWt.toFixed(3)}</strong>
-        </div>
-      </div>
-
-      {/* ── Scrollable body ── */}
+      {/* ── Scrollable Body ── */}
       <div className="summary__body">
 
-        {/* ── Material Breakdown ── */}
-        {Object.keys(byMaterial).length > 0 && (
-          <div className="summary__breakdown">
-            <div className="summary__breakdown-grid">
-            </div>
-          </div>
-        )}
-
-        {/* ── Scanned Bags (from BagScanning step) ── */}
+        {/* Scanned Bags chips */}
         {state.scannedBags?.length > 0 && (
           <div className="summary__section">
-            <h3>Scanned Bags <span className="summary__section-count">{state.scannedBags.length}</span></h3>
+            <div className="summary__section-header">
+              <span className="summary__section-title">Scanned Bags</span>
+              <span className="summary__section-count">{state.scannedBags.length}</span>
+            </div>
             <div className="summary__scanned-chips">
-              {state.scannedBags.map((bag) => (
+              {state.scannedBags.map(bag => (
                 <span key={bag.id} className="summary__scanned-chip">
                   {bag.rfbag || bag.id}
                   {bag.type && <em>{bag.type}</em>}
@@ -314,12 +269,12 @@ const Summary = () => {
           </div>
         )}
 
-        {/* ── Job Entries ── */}
+        {/* Job Entries */}
         <div className="summary__section">
-          <h3>
-            Job Entries
+          <div className="summary__section-header">
+            <span className="summary__section-title">Job Entries</span>
             <span className="summary__section-count">{totalJobs}</span>
-          </h3>
+          </div>
 
           {totalJobs === 0 ? (
             <div className="summary__empty">
@@ -328,23 +283,25 @@ const Summary = () => {
             </div>
           ) : (
             <div className="summary__jobs-list">
-              {state.scannedJobs.map((job) => {
-                const entries = state.jobEntries?.[job.id]?.bags || [];
-                return (
-                  <JobRow key={job.id} job={job} entries={entries} />
-                );
-              })}
+              {state.scannedJobs.map((job, idx) => (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  entries={getJobEntries(job)}
+                  index={idx}
+                />
+              ))}
             </div>
           )}
         </div>
 
-      </div>{/* end summary__body */}
+      </div>
 
       {/* ── Actions ── */}
       <div className="summary__actions">
         <Button
           variant="outlined"
-          onClick={() => navigate('/material-entry')}
+          onClick={() => jobverification === 'true' ? navigate('/job-verification') : navigate('/material-entry')}
           startIcon={<ArrowLeft size={18} />}
           className="summary__back-btn"
         >
@@ -361,6 +318,7 @@ const Summary = () => {
           Save &amp; Process
         </Button>
       </div>
+
     </div>
   );
 };
