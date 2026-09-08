@@ -12,33 +12,53 @@ import '../MaterialEntry/BulkSingleEntry/Bulksingleentry.scss';
 import './JobVerification.scss';
 
 const norm = (s) => String(s ?? '').trim().toUpperCase();
-const isSolitaire = (m) => Number(m?.is_sol_gem) === 1;
 const getEngagedMaterial = () => getMaster('allEngagedMaterial', []);
 
-const itemName = (itemid, isSol = false) =>
-  (itemid === 3 && isSol) ? 'DIAMOND:S' :
-  itemid === 3 ? 'DIAMOND' : itemid === 4 ? 'COLORSTONE' : itemid === 5 ? 'FINDING' : 'MISC';
+// ── Center-stone (Solitaire / Zemstone) detection ──
+// IsCenterStone === 1: itemid 3 -> ":S" (Solitaire), itemid 4 -> ":Z" (Zemstone)
+const isCenterStone = (m) =>
+  Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
 
-const matColor = (item = '', isSol = false) => {
+const withCenterSuffix = (name, m) => {
+  if (!isCenterStone(m)) return name;
+  const u = String(name).toUpperCase();
+  if (u.endsWith(':S') || u.endsWith(':Z')) return name; // already suffixed
+  const id = Number(m?.itemid);
+  if (id === 3) return `${name}:S`;
+  if (id === 4) return `${name}:Z`;
+  return name;
+};
+
+// Base material name for an itemid, with the center-stone suffix applied.
+const itemName = (row) => {
+  const base = row?.itemid === 3 ? 'DIAMOND'
+    : row?.itemid === 4 ? 'COLORSTONE'
+      : row?.itemid === 5 ? 'FINDING' : 'MISC';
+  return withCenterSuffix(base, row);
+};
+
+const matColor = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return '#6343f1';
+  if (u.includes('COLORSTONE:Z')) return '#00897b';
   if (u.includes('DIAMOND')) return '#e91e63';
   if (u.includes('COLORSTONE')) return '#9c27b0';
   return '#ff9800';
 };
 
-const matIcon = (item = '', isSol = false, size = 13) => {
+const matIcon = (item = '', size = 13) => {
   const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S')) return <Stone size={size} />;
+  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:Z')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING')) return <Wrench size={size} />;
   return <Package size={size} />;
 };
 
-const matLabel = (item = '', isSol = false) => {
+const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
+  if (u.includes('COLORSTONE:Z')) return 'Colorstone:Z';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
@@ -70,7 +90,7 @@ const JobVerification = () => {
   const allEngaged = useMemo(() => getEngagedMaterial(), []);
 
   useEffect(() => {
-    actions.setStep(2);
+    actions.setStep(3);
     if (!state.locker) navigate('/select-locker');
     inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,7 +281,7 @@ const JobVerification = () => {
     const bags = job.rows
       .filter((r) => hasTxn(r.txnid) && returnedTxns.has(r.txnid) && !returnAllTxns.has(r.txnid))
       .map((r) => {
-        const item = r.item || itemName(r.itemid, isSolitaire(r));
+        const item = withCenterSuffix(r.item || itemName(r), r);
         const inp = inputs[r.txnid] || {
           pcs: String(r.isspcs ?? ''),
           cwt: Number(r.isswt ?? 0).toFixed(3),
@@ -283,7 +303,6 @@ const JobVerification = () => {
             norm(m.Size ?? m.size ?? '') === norm(r.Size)
         );
         const resolvedQid = String(matLine?.qid ?? '');
-
         return {
           txnid: r.txnid,
           jid: resolvedJid,
@@ -327,8 +346,8 @@ const JobVerification = () => {
     if (!job) return [];
     const groups = {};
     job.rows.forEach((r) => {
-      const item = r.item || itemName(r.itemid, isSolitaire(r));
-      if (!groups[item]) groups[item] = { pcs: 0, wt: 0, isSol: isSolitaire(r) };
+      const item = withCenterSuffix(r.item || itemName(r), r);
+      if (!groups[item]) groups[item] = { pcs: 0, wt: 0 };
       groups[item].pcs += Number(r.isspcs || 0);
       groups[item].wt += Number(r.isswt || 0);
     });
@@ -396,8 +415,8 @@ const JobVerification = () => {
               <span className="bse-job-id">{job.serialjobno}</span>
               <div className="bse-pills">
                 {pills.map(([item, v]) => (
-                  <span key={item} className="bse-pill" style={{ '--pc': matColor(item, v.isSol) }}>
-                    <b>{matLabel(item, v.isSol)}</b>{v.wt.toFixed(3)} ctw · {v.pcs} pcs
+                  <span key={item} className="bse-pill" style={{ '--pc': matColor(item) }}>
+                    <b>{matLabel(item)}</b>{v.wt.toFixed(3)} ctw · {v.pcs} pcs
                   </span>
                 ))}
               </div>
@@ -407,7 +426,7 @@ const JobVerification = () => {
             </div>
 
             {/* Table */}
-            <div className="bse-table-wrap">
+            <div className="bse-table-wrap" style={{ height: '70vh' }}>
               <table className="bse-table">
                 <thead>
                   <tr className="bse-thead-main">
@@ -419,12 +438,12 @@ const JobVerification = () => {
                     <th className="bse-th bse-th--sub">Orig CT/Gms</th>
                     <th className="bse-th bse-th--sub">Return PCS</th>
                     <th className="bse-th bse-th--sub">Return CT/Gms</th>
-                    <th className="bse-th bse-th--sub" style={{width: '220px'}}>Action</th>
+                    <th className="bse-th bse-th--sub" style={{ width: '220px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {job.rows.map((r, idx) => {
-                    const item = r.item || itemName(r.itemid, isSolitaire(r));
+                    const item = withCenterSuffix(r.item || itemName(r), r);
                     const spec =
                       [r.shape, r.Quality, r.color, r.Size].filter(Boolean).join(' · ') ||
                       [r.findingtypename, r.findingAccessories].filter(Boolean).join(' · ');
@@ -442,8 +461,8 @@ const JobVerification = () => {
                       >
                         <td className="bse-td bse-td--sr">{idx + 1}</td>
                         <td className="bse-td bse-td--mat">
-                          <span className="bse-mat" style={{ color: matColor(item, isSolitaire(r)) }}>
-                            {matIcon(item, isSolitaire(r))}{r.MaterialTypeName || matLabel(item, isSolitaire(r))}
+                          <span className="bse-mat" style={{ color: matColor(item) }}>
+                            {matIcon(item)}{r.MaterialTypeName || matLabel(item)}
                           </span>
                         </td>
                         <td className="bse-td bse-td--desc">{spec || '—'}</td>

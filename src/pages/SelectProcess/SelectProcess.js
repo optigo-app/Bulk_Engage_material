@@ -1,18 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEngage } from '../../context/EngageContext';
-import { ArrowRight, ArrowLeft, Layers, Gem, Palette, Wrench, Stone, Package, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Layers, Gem, Palette, Wrench, Package, Sparkles } from 'lucide-react';
 import Button from '@mui/material/Button';
+import {
+  PROCESS_TYPE_LABELS, PROCESS_TYPE_DESC,
+  PROCESS_SUBTYPE_LABELS, PROCESS_SUBTYPE_DESC,
+} from '../../Utils/processLabels';
 import './SelectProcess.scss';
 
 const MATERIALS = [
   { id: 'all', label: 'All', icon: Package, color: '#1565c0' },
-  { id: 'diamond', label: 'Diamond', icon: Gem, color: '#e91e63' },
-  { id: 'colorstone', label: 'Colorstone', icon: Palette, color: '#9c27b0' },
+  { id: 'diamond', label: 'Diamond/Solitaire', icon: Gem, color: '#e91e63' },
+  { id: 'colorstone', label: 'ColorStone/Gemstone', icon: Palette, color: '#9c27b0' },
   { id: 'misc', label: 'Misc', icon: Sparkles, color: '#ff9800' },
   { id: 'findings', label: 'Findings', icon: Wrench, color: '#8f3bfc' },
-  { id: 'Solitore', label: 'Solitore', icon: Stone, color: '#6343f1' },
 ];
+
+// Centralized material-type display labels (used by Sidebar / Summary etc.)
+export const MATERIAL_TYPE_LABELS = {
+  all: 'All',
+  diamond: 'Diamond/Solitaire',
+  colorstone: 'ColorStone/Gemstone',
+  misc: 'Misc',
+  findings: 'Findings',
+};
 
 const SelectProcess = () => {
   const navigate = useNavigate();
@@ -162,16 +174,16 @@ const SelectProcess = () => {
   const step1Cards = [
     {
       id: 'single',
-      label: 'Single Engage',
-      desc: 'Process one job at a time with individual material assignment',
+      label: PROCESS_TYPE_LABELS.single,
+      desc: PROCESS_TYPE_DESC.single,
       tag: 'A',
       iconType: 'single',
       Icon: Layers,
     },
     {
       id: 'bulk',
-      label: 'Bulk Engage',
-      desc: 'Process multiple jobs together in bulk operation',
+      label: PROCESS_TYPE_LABELS.bulk,
+      desc: PROCESS_TYPE_DESC.bulk,
       tag: 'B',
       iconType: 'bulk',
       Icon: Package,
@@ -179,14 +191,22 @@ const SelectProcess = () => {
   ];
 
   // Step 2 cards data
+  const subTypeCard = (id, tag, iconType) => ({
+    id,
+    label: PROCESS_SUBTYPE_LABELS[id],
+    desc: PROCESS_SUBTYPE_DESC[id],
+    tag,
+    iconType,
+  });
+
   const step2Cards = state.processType === 'single'
     ? [
-      { id: 'single-single', label: 'Single → Single', desc: 'One job with one material at a time', tag: 'A1', iconType: 'a1' },
-      { id: 'single-bulk', label: 'Single → Bulk', desc: 'One job with multiple materials', tag: 'A2', iconType: 'a2' },
+      subTypeCard('single-single', 'A1', 'a1'),
+      subTypeCard('single-bulk', 'A2', 'a2'),
     ]
     : [
-      { id: 'bulk-single', label: 'Bulk → Single', desc: 'Multiple jobs with single material each', tag: 'B1', iconType: 'b1' },
-      { id: 'bulk-bulk', label: 'Bulk → Bulk RM', desc: 'Multiple jobs with bulk raw material', tag: 'B2', iconType: 'b2' },
+      subTypeCard('bulk-single', 'B1', 'b1'),
+      subTypeCard('bulk-bulk', 'B2', 'b2'),
     ];
 
   return (
@@ -194,7 +214,7 @@ const SelectProcess = () => {
 
       {/* Header */}
       <div className="select-process__header">
-        <div className="select-process__step-badge">Step 3</div>
+        {/* <div className="select-process__step-badge">Step 3</div> */}
         <h1 className="select-process__title">Select Process</h1>
         <p className="select-process__desc">Choose the engage method and material type</p>
       </div>
@@ -203,12 +223,12 @@ const SelectProcess = () => {
       <div className="select-process__progress">
         <div className={`select-process__progress-dot ${step >= 1 ? 'select-process__progress-dot--active' : ''}`}>
           <span>1</span>
-          <label>Type</label>
+          <label>Job Mode</label>
         </div>
         <div className={`select-process__progress-line ${step >= 2 ? 'select-process__progress-line--active' : ''}`} />
         <div className={`select-process__progress-dot ${step >= 2 ? 'select-process__progress-dot--active' : ''}`}>
           <span>2</span>
-          <label>Sub-Type</label>
+          <label>Entry Method</label>
         </div>
         <div className={`select-process__progress-line ${step >= 3 ? 'select-process__progress-line--active' : ''}`} />
         <div className={`select-process__progress-dot ${step >= 3 ? 'select-process__progress-dot--active' : ''}`}>
@@ -220,7 +240,7 @@ const SelectProcess = () => {
       {/* Step 1 */}
       {step === 1 && (
         <div className="select-process__section page-enter">
-          <h2 className="select-process__section-title">Select Engage Type</h2>
+          <h2 className="select-process__section-title">Select Job Mode</h2>
           <div className="select-process__type-grid" ref={gridRef}>
             {step1Cards.map((card, idx) => {
               const isSelected = state.processType === card.id;
@@ -255,7 +275,7 @@ const SelectProcess = () => {
       {step === 2 && (
         <div className="select-process__section page-enter">
           <h2 className="select-process__section-title">
-            Select Sub-Type for {state.processType === 'single' ? 'Single' : 'Bulk'} Engage
+            Select Entry Method for {PROCESS_TYPE_LABELS[state.processType]}
           </h2>
           <div className="select-process__type-grid" ref={gridRef}>
             {step2Cards.map((card, idx) => {

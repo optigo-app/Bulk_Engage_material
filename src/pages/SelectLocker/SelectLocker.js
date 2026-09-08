@@ -217,7 +217,7 @@ const SelectLocker = () => {
   return (
     <div className="select-locker page-enter">
       <div className="select-locker__header">
-        <div className="select-locker__step-badge">Step 2</div>
+        {/* <div className="select-locker__step-badge">Step 2</div> */}
         <h1 className="select-locker__title">Select Locker</h1>
         <p className="select-locker__desc">
           Choose a locker or scan its barcode to assign for this engage process

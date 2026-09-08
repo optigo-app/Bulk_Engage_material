@@ -221,7 +221,7 @@
 
   &__material-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
     max-width: 1100px;
     margin: 0 auto;
@@ -435,5 +435,10 @@
 @media (max-width: 1800px) {
   .select-process {
     padding: 0px !important;
+
+    &__title {
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
   }
 }

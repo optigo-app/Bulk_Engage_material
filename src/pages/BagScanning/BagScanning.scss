@@ -733,7 +733,6 @@
   font-size: 12px;
   color: #475569;
   line-height: 1.6;
-
 }
 
 .bag-scanning__bag-chip {
@@ -773,6 +772,20 @@
   &--scanned {
     cursor: default;
   }
+
+  // Every matched bag is exhausted (0 rem. pcs and 0 rem. wt)
+  &--empty {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    border-style: dashed;
+    color: #94a3b8;
+    font-weight: 500;
+    cursor: default;
+
+    &:hover {
+      background: #f8fafc;
+    }
+  }
 }
 
 .bag-scanning__bag-chip-remove {
@@ -784,7 +797,9 @@
   border-radius: 999px;
   color: #15803d;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
     background: #ef4444;
@@ -893,11 +908,24 @@
 @media (max-width: 1800px) {
   .bag-scanning {
     padding: 0px !important;
-  }
 
-  .bag-scanning {
     &__layout {
       height: 70vh !important;
+    }
+
+    &__title {
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
+
+    &__bags-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      max-height: calc(100vh - #{$header-height} - 180px);
+      padding-right: 4px;
+      padding-bottom: 8px;
     }
   }
 }

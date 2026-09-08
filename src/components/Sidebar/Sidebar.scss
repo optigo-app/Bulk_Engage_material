@@ -144,6 +144,17 @@
       color: var(--primary-light);
       flex-shrink: 0;
     }
+
+    // Job Verification mode badge — distinct accent
+    &--jv {
+      background: color-mix(in srgb, #6343f1 14%, transparent);
+      color: #4c1d95;
+      font-weight: 600;
+
+      svg {
+        color: #6343f1;
+      }
+    }
   }
 
   &__nav {

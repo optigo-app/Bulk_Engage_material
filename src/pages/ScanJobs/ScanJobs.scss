@@ -846,6 +846,13 @@
 
 @media (max-width: 1800px) {
   .scan-jobs {
+    &__title {
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
+  }
+
+  .scan-jobs {
     padding: 0px !important;
   }
 }

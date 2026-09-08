@@ -14,7 +14,20 @@ import { getMaster, isMasterKey } from '../../../Utils/masterStore';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 const norm = (s) => String(s ?? '').trim().toUpperCase();
-const isSolitaire = (m) => Number(m?.is_sol_gem) === 1;
+// ── Center-stone (Solitaire / Zemstone) detection ──
+// IsCenterStone === 1: itemid 3 -> ":S" (Solitaire), itemid 4 -> ":Z" (Zemstone)
+const isCenterStone = (m) =>
+  Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
+
+const withCenterSuffix = (name, m) => {
+  if (!isCenterStone(m)) return name;
+  const u = String(name).toUpperCase();
+  if (u.endsWith(':S') || u.endsWith(':Z')) return name; // already suffixed
+  const id = Number(m?.itemid);
+  if (id === 3) return `${name}:S`;
+  if (id === 4) return `${name}:Z`;
+  return name;
+};
 const getSession = (key) => { if (isMasterKey(key)) return getMaster(key, []); try { const r = sessionStorage.getItem(key); return r ? JSON.parse(r) : []; } catch { return []; } };
 
 const getEngagedTotals = (AllEngagedMaterial, jobNosOrStr, row) => {
@@ -23,7 +36,6 @@ const getEngagedTotals = (AllEngagedMaterial, jobNosOrStr, row) => {
     if (!e.isengage) return false;
     if (!jobNos.some(j => norm(e.serialjobno) === norm(j))) return false;
     if (e.itemid !== row.itemid) return false;
-    if (isSolitaire(row) !== isSolitaire(e)) return false;
     if (row.itemid === 5) {
       return norm(e.findingtypename || '') === norm(row.findingtypename || '') &&
         norm(e.findingAccessories || '') === norm(row.findingAccessories || '');
@@ -50,43 +62,46 @@ const getEngagedTotals = (AllEngagedMaterial, jobNosOrStr, row) => {
 };
 
 
+// IsCenterStone is NOT compared: it belongs to the material line only, so a
+// center-stone row is still filled from an ordinary bag.
 const findMatchingBag = (line, scannedBags) =>
   scannedBags.find(
     (b) =>
       b.itemid === line.itemid &&
-      isSolitaire(b) === isSolitaire(line) &&
       norm(b.shape) === norm(line.shape) &&
       norm(b.quality) === norm(line.Quality) &&
       norm(b.color_name) === norm(line.color) &&
       norm(b.size) === norm(line.size) &&
-      (!isSolitaire(line) || !line.stone_uniqueno || !b.stone_uniqueno ||
+      (!isCenterStone(line) || !line.stone_uniqueno || !b.stone_uniqueno ||
         norm(b.stone_uniqueno) === norm(line.stone_uniqueno))
   ) || null;
 
 const findBagById = (id, pool) =>
   pool.find((b) => norm(b.rfbag) === norm(id) || norm(b.rfbag).endsWith(norm(id))) || null;
 
-const matColor = (item = '', isSol = false) => {
+const matColor = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return '#6343f1';
+  if (u.includes('COLORSTONE:Z')) return '#00897b';
   if (u.includes('DIAMOND')) return '#e91e63';
   if (u.includes('COLORSTONE')) return '#9c27b0';
   if (u.includes('FINDING') || u.includes('MISC')) return '#ff9800';
   return '#607d8b';
 };
 
-const matIcon = (item = '', isSol = false, size = 13) => {
+const matIcon = (item = '', size = 13) => {
   const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S')) return <Stone size={size} />;
+  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:Z')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING') || u.includes('MISC')) return <Wrench size={size} />;
   return <Package size={size} />;
 };
 
-const matLabel = (item = '', isSol = false) => {
+const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
+  if (u.includes('COLORSTONE:Z')) return 'Colorstone:Z';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
@@ -94,14 +109,15 @@ const matLabel = (item = '', isSol = false) => {
 };
 
 const groupKey = (line) =>
-  `${norm(line.item)}|${isSolitaire(line) ? '1' : '0'}|${norm(line.shape)}|${norm(line.Quality)}|${norm(line.color)}|${norm(line.size)}|${norm(line.findingtypename)}|${norm(line.findingAccessories)}`;
+  `${norm(line.item)}|${isCenterStone(line) ? '1' : '0'}|${norm(line.shape)}|${norm(line.Quality)}|${norm(line.color)}|${norm(line.size)}|${norm(line.findingtypename)}|${norm(line.findingAccessories)}`;
 
-const MATERIAL_ITEMID_MAP = { all: null, diamond: [3], colorstone: [4], misc: [7], findings: [5], Solitore: [3] };
+const MATERIAL_ITEMID_MAP = { all: null, diamond: [3], colorstone: [4], misc: [7], findings: [5] };
 
 const materialTypeFilter = (m, materialType) => {
   if (!materialType || materialType === 'all') return true;
-  if (materialType === 'Solitore') return m.itemid === 3 && isSolitaire(m);
-  if (materialType === 'diamond') return m.itemid === 3 && !isSolitaire(m);
+  // Diamond/Solitaire — includes center-stone Diamond:S
+  if (materialType === 'diamond') return m.itemid === 3;
+  // ColorStone/Gemstone — includes center-stone Colorstone:Z
   if (materialType === 'colorstone') return m.itemid === 4;
   if (materialType === 'misc') return m.itemid === 7;
   if (materialType === 'findings') return m.itemid === 5;
@@ -110,14 +126,15 @@ const materialTypeFilter = (m, materialType) => {
 };
 
 const convertRawBagToScanned = (rawBag) => {
-  const sol = isSolitaire(rawBag);
+  const baseType = rawBag.itemid === 3 ? 'Diamond' : rawBag.itemid === 4 ? 'Colorstone' : rawBag.itemid === 5 ? 'Finding' : 'Misc';
+  const type = withCenterSuffix(baseType, rawBag);
   return {
     id: rawBag.rfbag, label: rawBag.rfbag, rfbag: rawBag.rfbag,
     itemid: rawBag.itemid,
-    is_sol_gem: rawBag.is_sol_gem || 0,
+    IsCenterStone: rawBag.IsCenterStone ?? 0,
     stone_uniqueno: rawBag.stone_uniqueno || '',
-    type: sol ? 'Diamond:S' : (rawBag.itemid === 3 ? 'Diamond' : rawBag.itemid === 4 ? 'Colorstone' : rawBag.itemid === 5 ? 'Finding' : 'Misc'),
-    color: sol ? '#6343f1' : (rawBag.itemid === 3 ? '#e91e63' : rawBag.itemid === 4 ? '#9c27b0' : '#ff9800'),
+    type,
+    color: matColor(type),
     shape: rawBag.shape, quality: rawBag.Quality, size: rawBag.Size,
     wt: rawBag.wt, pcs: rawBag.pcs, supplier: rawBag.supplier,
     color_name: rawBag.color, shapeid: rawBag.shapeid,
@@ -152,9 +169,10 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
       } : null;
       map.set(key, {
         rowKey: key,
-        item: line.item || (isSolitaire(line) ? 'DIAMOND:S' : ''),
+        // Center stones carry the ":S" / ":Z" suffix on the material name.
+        item: withCenterSuffix(line.item || '', line),
         itemid: line.itemid,
-        is_sol_gem: line.is_sol_gem || 0,
+        IsCenterStone: line.IsCenterStone ?? 0,
         stone_uniqueno: line.stone_uniqueno || '',
         MaterialTypeName: line.MaterialTypeName || '',
         shape: line.shape || '',
@@ -345,8 +363,8 @@ const ReturnModal = ({ rows, inputs, onSave, onUnlock, onClose }) => {
                   <tr key={row.rowKey} className="bmw__row">
                     <td className="bmw__td bmw__td--sr">{idx + 1}</td>
                     <td className="bmw__td bmw__td--type">
-                      <span className="bmw__mat" style={{ color: matColor(row.item, isSolitaire(row)) }}>
-                        {matLabel(row.item, isSolitaire(row))}
+                      <span className="bmw__mat" style={{ color: matColor(row.item) }}>
+                        {matLabel(row.item)}
                       </span>
                     </td>
                     <td
@@ -494,6 +512,9 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
     })) return;
     const entries = rows.map((r) => {
       const bag = r.matchedBag || r.manualBag;
+      // For engaged-only rows (no scanned bag), fall back to the rfbag
+      // resolved from allEngagedMaterial via getEngagedTotals.
+      const resolvedRfbag = bag?.rfbag ?? r.engagedRfbag ?? null;
       return {
         rowKey: r.rowKey,
         qid: r.qids?.[0] ?? null,
@@ -501,7 +522,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
         isUnusedBag: !(r.qids?.length),
         item: r.item,
         itemid: r.itemid,
-        is_sol_gem: r.is_sol_gem || 0,
+        IsCenterStone: r.IsCenterStone ?? 0,
         stone_uniqueno: r.stone_uniqueno || '',
         MaterialTypeName: r.MaterialTypeName,
         shape: r.shape,
@@ -512,8 +533,8 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
         findingAccessories: r.findingAccessories || '',
         requiredPcs: r.reqPcs,
         requiredWt: r.reqWt,
-        rfbag: bag?.rfbag || null,
-        bag: bag ? { rfbag: bag.rfbag } : null,
+        rfbag: resolvedRfbag,
+        bag: (bag || resolvedRfbag) ? { rfbag: resolvedRfbag ?? '' } : null,
         iscompany: bag?.iscompany ?? null,
         pcs: parseFloat(inputs[r.rowKey]?.pcs) || 0,
         wt: parseFloat(inputs[r.rowKey]?.cwt) || 0,
@@ -528,17 +549,18 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
     setInputs((prev) => ({ ...prev, ...updatedInputs }));
     const entries = rows.map((r) => {
       const bag = r.matchedBag || r.manualBag;
+      const resolvedRfbag = bag?.rfbag ?? r.engagedRfbag ?? null;
       return {
         rowKey: r.rowKey, qid: r.qids?.[0] ?? null, jid: r.jids?.[0] ?? null,
         isUnusedBag: !(r.qids?.length),
         item: r.item, itemid: r.itemid,
-        is_sol_gem: r.is_sol_gem || 0,
+        IsCenterStone: r.IsCenterStone ?? 0,
         stone_uniqueno: r.stone_uniqueno || '',
-        rfbag: bag?.rfbag || null,
+        rfbag: resolvedRfbag,
         shape: r.shape, quality: r.quality, color: r.color, size: r.size,
         findingtypename: r.findingtypename || '',
         findingAccessories: r.findingAccessories || '',
-        bag: bag ? { rfbag: bag.rfbag } : null,
+        bag: (bag || resolvedRfbag) ? { rfbag: resolvedRfbag ?? '' } : null,
         iscompany: bag?.iscompany ?? null,
         pcs: parseFloat(updatedInputs[r.rowKey]?.pcs) || 0,
         wt: parseFloat(updatedInputs[r.rowKey]?.cwt) || 0,
@@ -627,9 +649,10 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
 
   // Add material from modal
   const handleAddMaterial = (bag) => {
-    const bagIsSol = isSolitaire(bag);
-    const item = bagIsSol ? 'DIAMOND:S' : (bag.itemid === 3 ? 'DIAMOND' : bag.itemid === 4 ? 'COLORSTONE' : 'FINDING');
-    const key = `${norm(item)}|${bagIsSol ? '1' : '0'}|${norm(bag.shape)}|${norm(bag.quality)}|${norm(bag.color_name)}|${norm(bag.size)}`;
+    const bagIsCS = isCenterStone(bag);
+    const baseName = bag.itemid === 3 ? 'DIAMOND' : bag.itemid === 4 ? 'COLORSTONE' : 'FINDING';
+    const item = withCenterSuffix(baseName, bag);
+    const key = `${norm(item)}|${bagIsCS ? '1' : '0'}|${norm(bag.shape)}|${norm(bag.quality)}|${norm(bag.color_name)}|${norm(bag.size)}`;
 
     // If spec already exists, just assign this bag to that row
     const existing = rows.find((r) => r.rowKey === key);
@@ -651,7 +674,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
       rowKey: key,
       item,
       itemid: bag.itemid,
-      is_sol_gem: bag.is_sol_gem || 0,
+      IsCenterStone: bag.IsCenterStone ?? 0,
       stone_uniqueno: bag.stone_uniqueno || '',
       shape: bag.shape,
       quality: bag.quality,
@@ -675,11 +698,11 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
   // Filter + group
   const filtered = filter === 'ALL'
     ? rows
-    : rows.filter((r) => matLabel(r.item, isSolitaire(r)) === filter);
+    : rows.filter((r) => matLabel(r.item) === filter);
 
   const grouped = filtered.reduce((acc, r) => {
-    const k = matLabel(r.item, isSolitaire(r)).toUpperCase();
-    if (!acc[k]) acc[k] = { item: r.item, isSol: isSolitaire(r), rows: [] };
+    const k = matLabel(r.item).toUpperCase();
+    if (!acc[k]) acc[k] = { item: r.item, rows: [] };
     acc[k].rows.push(r);
     return acc;
   }, {});
@@ -783,11 +806,11 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(grouped).map(([groupName, { item, isSol, rows: gRows }]) => (
+                {Object.entries(grouped).map(([groupName, { item, rows: gRows }]) => (
                   <React.Fragment key={groupName}>
                     <tr className="bmw__group-row">
                       <td colSpan={8}>
-                        <div className="bmw__group-label" style={{ '--gc': matColor(item, isSol) }}>
+                        <div className="bmw__group-label" style={{ '--gc': matColor(groupName) }}>
                           {groupName}
                         </div>
                       </td>
@@ -798,7 +821,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
                       const isAuto = !!row.matchedBag;
                       const inp = inputs[row.rowKey] || { pcs: '', cwt: '' };
                       const sr = srCounter++;
-                      const color = matColor(row.item, isSolitaire(row));
+                      const color = matColor(row.item);
                       const isEngagedLockedRow = engagedLocked.has(row.rowKey);
 
                       return (

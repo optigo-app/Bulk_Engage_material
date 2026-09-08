@@ -891,12 +891,8 @@ const SingleSingleEntry = ({ state, actions }) => {
 
           <div className="sse-job-bar">
             <div className="sse-job-bar__left">
-              <PackageOpen size={18} />
               <span>Job:</span>
               <strong>{activeJob.id}</strong>
-              {activeJobQuotation && (
-                <span className="sse-job-bar__quote">{activeJobQuotation}</span>
-              )}
             </div>
             <div className="sse-job-bar__right">
               <span className="sse-job-bar__progress-text">
@@ -943,7 +939,6 @@ const SingleSingleEntry = ({ state, actions }) => {
               ) : (
                 <div className="sse-bags-list">
                   {sortedMaterialLines.map((line) => {
-                    console.log('line: ', line);
                     const isSaved = !!line.entry;
                     const isActive = line.lineKey === activeLineKey;
                     const hasBAg = !!line.assignedBag;

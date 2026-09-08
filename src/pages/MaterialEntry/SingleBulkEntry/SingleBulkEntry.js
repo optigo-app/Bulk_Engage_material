@@ -594,7 +594,7 @@ const SingleBulkEntry = ({ state, actions }) => {
       requiredPcs: m.requiredPcs,
       requiredWt: m.requiredWt,
       assignedBag: m.assignedBag,
-      rfbag: m.assignedBag || null,
+      rfbag: m.assignedBag ?? null,
       bag: m.assignedBag ? { rfbag: m.assignedBag } : null,
       iscompany: m.matchedBag?.iscompany ?? null,
       txnid: m.txnid ?? null,
@@ -616,9 +616,10 @@ const SingleBulkEntry = ({ state, actions }) => {
   // ── Material type label for display ──────────────────────────
   const matLabel = {
     all: 'All Materials',
-    diamond: 'Diamond only',
-    colorstone: 'Colorstone only',
-    misc: 'Misc / Findings only',
+    diamond: 'Diamond/Solitaire only',
+    colorstone: 'ColorStone/Gemstone only',
+    misc: 'Misc only',
+    findings: 'Findings only',
   }[state.materialType] || 'All Materials';
 
   // ── Sort: group by item type, engaged rows first within each group ──

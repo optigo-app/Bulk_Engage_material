@@ -189,11 +189,14 @@
   }
 }
 
-
-
 @media (max-width: 1800px) {
-
-  .select-locker{
+  .select-locker {
+    &__title {
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
+  }
+  .select-locker {
     padding: 0px !important;
   }
 }

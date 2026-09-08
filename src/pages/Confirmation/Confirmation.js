@@ -5,6 +5,8 @@ import { useEngage } from '../../context/EngageContext';
 import { CheckCircle2, AlertTriangle, RotateCcw, ArrowLeft } from 'lucide-react';
 import { refreshSessionData } from '../../Utils/refreshSessionData';
 import { removeMaster } from '../../Utils/masterStore';
+import { processSubTypeLabel } from '../../Utils/processLabels';
+import { MATERIAL_TYPE_LABELS } from '../SelectProcess/SelectProcess';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -15,19 +17,138 @@ import './Confirmation.scss';
 const Confirmation = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
+  console.log('state: ', state);
   const [showDialog, setShowDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     actions.setStep(7);
   }, []);
 
   const handleConfirm = () => {
+    setSaveError('');
     setShowDialog(true);
   };
 
-  const handleYesEngage = async () => {
+  const isBlank = (v) => {
+    const s = String(v ?? '').trim().toLowerCase();
+    return s === '' || s === 'null' || s === 'undefined' || s === '0';
+  };
+
+  // Build the engagesave rows out of the saved job entries.
+  // `isengagecompleted` is sent per row: 0 = Bagging Running, 1 = Bagging Completed.
+  const buildRows = (isengagecompleted) => {
+    const eid = String(
+      state.employee?.id ?? state.employee?.eid ?? state.employee?.empid ?? ''
+    );
+
+    // Map serialjobno -> jid, so lines that never carried a jid of
+    // their own (e.g. "Other Bag" / unmatched-material entries added
+    // when no material data matched a scanned job) can still be
+    // tied back to the correct job.
+    const jobJidMap = {};
+    (state.scannedJobs || []).forEach((j) => {
+      const key = String(j.serialjobno ?? j.id ?? '').trim().toUpperCase();
+      if (key) jobJidMap[key] = j.jid ?? null;
+    });
+
+    // Resolve rfbag from any of the shapes stored by the different
+    // material-entry modes:
+    //   bag.rfbag              — BulkSingleEntry / BulkMaterialWise
+    //   bag.bag?.rfbag         — all modes (nested bag object)
+    //   bag.assignedBag        — SingleBulkEntry stores the rfbag string directly
+    //   bag.matchedBag?.rfbag  — fallback to the matched bag object
+    //   bag.bag (string)       — SingleSingleEntry stores the full bag object
+    const resolveRfbag = (bag) => {
+      if (!bag) return '';
+      return String(
+        bag.rfbag ??
+        bag.bag?.rfbag ??
+        (typeof bag.assignedBag === 'string' ? bag.assignedBag : bag.assignedBag?.rfbag) ??
+        bag.matchedBag?.rfbag ??
+        (typeof bag.bag === 'string' ? bag.bag : '') ??
+        ''
+      );
+    };
+
+    const rows = [];
+    const entries = state.jobEntries || {};
+    const hasPerJob = Object.keys(entries).some((k) => k !== 'bulk-material');
+
+    if (hasPerJob) {
+      Object.entries(entries).forEach(([jobKey, jobData]) => {
+        if (jobKey === 'bulk-material') return;
+        const normalizedJobKey = String(jobKey ?? '').trim().toUpperCase();
+        const fallbackJid = jobJidMap[normalizedJobKey];
+        (jobData.bags || []).forEach((bag) => {
+          rows.push({
+            jid: String(bag.jid ?? fallbackJid ?? ''),
+            qid: bag.isUnusedBag ? '-1' : String(bag.qid ?? ''),
+            eid,
+            rfbag: resolveRfbag(bag),
+            wt: bag.wt ?? 0,
+            pcs: bag.pcs ?? 0,
+            txnid: bag.txnid ?? 0,
+            isengagecompleted,
+          });
+        });
+      });
+    } else {
+      // Bulk-material mode: read from 'bulk-material' only
+      (entries['bulk-material']?.bags || []).forEach((bag) => {
+        const jobNo = bag.jobNos?.[0] ?? bag.SerialJobNo ?? '';
+        const fallbackJid = jobJidMap[String(jobNo).trim().toUpperCase()];
+        rows.push({
+          jid: String(bag.jid ?? fallbackJid ?? ''),
+          qid: bag.isUnusedBag ? '-1' : String(bag.qid ?? ''),
+          eid,
+          rfbag: resolveRfbag(bag),
+          wt: bag.wt ?? 0,
+          pcs: bag.pcs ?? 0,
+          txnid: bag.txnid ?? 0,
+          isengagecompleted,
+        });
+      });
+    }
+
+    return { rows, eid };
+  };
+
+  // Validate before hitting the API — a blank jid would silently save
+  // the material against no job at all.
+  const validate = (rows, eid) => {
+    if (!rows.length) {
+      return 'No material entry found to engage. Please go back and enter the material.';
+    }
+    if (isBlank(eid)) {
+      return 'Employee id is missing. Please re-scan the employee.';
+    }
+    const badJid = rows.filter((r) => isBlank(r.jid));
+    if (badJid.length) {
+      const bags = [...new Set(badJid.map((r) => r.rfbag || 'unknown bag'))];
+      return `Job id (jid) is missing for ${badJid.length} entr${badJid.length === 1 ? 'y' : 'ies'} (bag: ${bags.join(', ')}). Please re-scan the job and try again.`;
+    }
+    return '';
+  };
+
+  /**
+   * @param {0|1} isengagecompleted 0 = Bagging Running, 1 = Bagging Completed
+   */
+  const handleEngage = async (isengagecompleted) => {
+    setSaveError('');
+
+    const { rows, eid } = buildRows(isengagecompleted);
+    const filteredRows = rows.filter((r) => r.wt > 0 || r.pcs > 0);
+
+    const error = validate(filteredRows, eid);
+    if (error) {
+      setShowDialog(false);
+      setSaveError(error);
+      return;
+    }
+
     setShowDialog(false);
     setIsProcessing(true);
 
@@ -38,67 +159,6 @@ const Confirmation = () => {
       })();
       const appuserid = reportData?.LUId || '';
       const clientIP = sessionStorage.getItem('clientIpAddress') || '';
-      const eid = String(
-        state.employee?.id ?? state.employee?.eid ?? state.employee?.empid ?? ''
-      );
-
-      // Map serialjobno -> jid, so lines that never carried a jid of
-      // their own (e.g. "Other Bag" / unmatched-material entries added
-      // when no material data matched a scanned job) can still be
-      // tied back to the correct job.
-      const jobJidMap = {};
-      (state.scannedJobs || []).forEach((j) => {
-        const key = String(j.serialjobno ?? j.id ?? '').trim().toUpperCase();
-        if (key) jobJidMap[key] = j.jid ?? null;
-      });
-
-      const rows = [];
-
-      const entries = state.jobEntries || {};
-      const hasPerJob = Object.keys(entries).some((k) => k !== 'bulk-material');
-
-      if (hasPerJob) {
-        // Single-entry mode: read per-job keys
-        Object.entries(entries).forEach(([jobKey, jobData]) => {
-          if (jobKey === 'bulk-material') return;
-          const normalizedJobKey = String(jobKey ?? '').trim().toUpperCase();
-          const fallbackJid = jobJidMap[normalizedJobKey];
-          (jobData.bags || []).forEach((bag) => {
-            rows.push({
-              jid: String(bag.jid ?? fallbackJid ?? ''),
-              qid: bag.isUnusedBag ? '-1' : String(bag.qid ?? ''),
-              eid,
-              rfbag: bag.rfbag || bag.bag?.rfbag || '',
-              wt: bag.wt ?? 0,
-              pcs: bag.pcs ?? 0,
-              // txnid preserved: 0 for a fresh engagement, the original
-              // engaged txnid when this row came from JobVerification's
-              // "Return" (edit) flow — engagesave updates that same
-              // engagement in place, so no separate return call is needed.
-              txnid: bag.txnid ?? 0,
-              is_sol_gem: bag.is_sol_gem ?? 0,
-              stone_uniqueno: bag.stone_uniqueno ?? '',
-            });
-          });
-        });
-      } else {
-        // Bulk-material mode: read from 'bulk-material' only
-        (entries['bulk-material']?.bags || []).forEach((bag) => {
-          rows.push({
-            jid: String(bag.jid ?? ''),
-            qid: bag.isUnusedBag ? '-1' : String(bag.qid ?? ''),
-            eid,
-            rfbag: bag.rfbag || bag.bag?.rfbag || '',
-            wt: bag.wt ?? 0,
-            pcs: bag.pcs ?? 0,
-            txnid: bag.txnid ?? 0,
-            is_sol_gem: bag.is_sol_gem ?? 0,
-            stone_uniqueno: bag.stone_uniqueno ?? '',
-          });
-        });
-      }
-
-      const filteredRows = rows.filter((r) => r.wt > 0 || r.pcs > 0);
 
       const apiBody = {
         con: JSON.stringify({
@@ -114,6 +174,9 @@ const Confirmation = () => {
       await CallApi(apiBody);
     } catch (err) {
       console.error('Engage save error:', err);
+      setIsProcessing(false);
+      setSaveError('Engage save failed. Please try again.');
+      return;
     }
     sessionStorage.removeItem("scannedBagData");
     sessionStorage.removeItem("scannedJobListData");
@@ -231,17 +294,24 @@ const Confirmation = () => {
         </div>
       </div>
 
+      {saveError && (
+        <div className="confirmation__error">
+          <AlertTriangle size={18} />
+          <span>{saveError}</span>
+        </div>
+      )}
+
       <div className="confirmation__summary-grid">
         <div className="confirmation__summary-item">
           <span className="confirmation__summary-label">Process Type</span>
           <span className="confirmation__summary-value">
-            {state.processSubType?.replace('-', ' → ').replace(/\b\w/g, l => l.toUpperCase())}
+            {processSubTypeLabel(state.processSubType)}
           </span>
         </div>
         <div className="confirmation__summary-item">
           <span className="confirmation__summary-label">Material</span>
           <span className="confirmation__summary-value">
-            {state.materialType?.charAt(0).toUpperCase() + state.materialType?.slice(1)}
+            {MATERIAL_TYPE_LABELS[state.materialType] || (state.materialType?.charAt(0).toUpperCase() + state.materialType?.slice(1))}
           </span>
         </div>
         <div className="confirmation__summary-item">
@@ -294,8 +364,12 @@ const Confirmation = () => {
           <p style={{ color: '#94a3b8', marginTop: 16 }}>
             Are you sure you want to engage all scanned materials? This action will finalize the process.
           </p>
+          <p style={{ color: '#64748b', marginTop: 8, fontSize: 13 }}>
+            Choose <strong style={{ color: '#f59e0b' }}>Bagging Running</strong> if bagging is still
+            in progress, or <strong style={{ color: '#4caf50' }}>Bagging Completed</strong> once it is done.
+          </p>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 4, gap: 2 }}>
+        <DialogActions sx={{ justifyContent: 'center', pb: 4, gap: 2, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
             onClick={() => setShowDialog(false)}
@@ -305,7 +379,7 @@ const Confirmation = () => {
               borderRadius: '10px',
               textTransform: 'none',
               fontWeight: 600,
-              px: 4,
+              px: 3,
               height: 44,
               '&:hover': { borderColor: '#94a3b8' }
             }}
@@ -314,19 +388,35 @@ const Confirmation = () => {
           </Button>
           <Button
             variant="contained"
-            onClick={handleYesEngage}
+            onClick={() => handleEngage(0)}
+            sx={{
+              background: 'linear-gradient(135deg, #b45309, #f59e0b)',
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 44,
+              fontSize: 15,
+              '&:hover': { background: 'linear-gradient(135deg, #d97706, #fbbf24)' }
+            }}
+          >
+            Bagging Running
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => handleEngage(1)}
             sx={{
               background: 'linear-gradient(135deg, #2e7d32, #4caf50)',
               borderRadius: '10px',
               textTransform: 'none',
               fontWeight: 700,
-              px: 4,
+              px: 3,
               height: 44,
               fontSize: 15,
               '&:hover': { background: 'linear-gradient(135deg, #388e3c, #66bb6a)' }
             }}
           >
-            Yes, Engage!
+            Bagging Completed
           </Button>
         </DialogActions>
       </Dialog>
@@ -353,7 +443,6 @@ export default Confirmation;
 // const Confirmation = () => {
 //   const navigate = useNavigate();
 //   const { state, actions } = useEngage();
-//   console.log('state: ', state);
 //   const [showDialog, setShowDialog] = useState(false);
 //   const [isProcessing, setIsProcessing] = useState(false);
 //   const [isSuccess, setIsSuccess] = useState(false);

@@ -33,7 +33,7 @@ const MaterialEntry = () => {
   return (
     <div className="material-entry page-enter">
       <div className="material-entry__header">
-        <div className="material-entry__step-badge">Step 6</div>
+        {/* <div className="material-entry__step-badge">Step 6</div> */}
         <div className="material-entry__mode-badge">{subTypeLabel}</div>
       </div>
 

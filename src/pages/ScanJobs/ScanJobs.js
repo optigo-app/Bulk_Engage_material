@@ -253,7 +253,7 @@ const ScanJobs = () => {
 
       {/* ─── Header ─── */}
       <div className="scan-jobs__header">
-        <div className="scan-jobs__step-badge">Step 4</div>
+        {/* <div className="scan-jobs__step-badge">Step 4</div> */}
         <h1 className="scan-jobs__title">Scan Jobs</h1>
         <p className="scan-jobs__desc">Scan all job barcodes for this engage process</p>
       </div>

@@ -195,7 +195,7 @@ const ScanEmployee = () => {
       </div>
 
       <div className="scan-employee__header">
-        <div className="scan-employee__step-badge">Step 1</div>
+        {/* <div className="scan-employee__step-badge">Step 1</div> */}
         <h1 className="scan-employee__title">Scan Employee</h1>
         <p className="scan-employee__desc">Scan employee barcode or enter employee code to begin</p>
       </div>

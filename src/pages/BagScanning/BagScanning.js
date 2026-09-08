@@ -29,15 +29,22 @@ const getSessionData = (key) => {
   }
 };
 
-const isSolitaire = (m) => Number(m?.is_sol_gem) === 1;
+// ── Center-stone (Solitaire / Zemstone) detection ──
+// IsCenterStone === 1 marks the line/bag as a center stone:
+//   itemid 3 (Diamond)    -> Solitaire  -> name suffix ":S"
+//   itemid 4 (Colorstone) -> Zemstone   -> name suffix ":Z"
+const isCenterStone = (m) =>
+  Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
 
-const getItemLabel = (itemid, isSol = false) => {
-  if (itemid === 3 && isSol) return "Diamond:S";
-  switch (itemid) {
+const getItemLabel = (itemid, cs = false) => {
+  const suffix = cs
+    ? (Number(itemid) === 3 ? ":S" : Number(itemid) === 4 ? ":Z" : "")
+    : "";
+  switch (Number(itemid)) {
     case 3:
-      return "Diamond";
+      return `Diamond${suffix}`;
     case 4:
-      return "Colorstone";
+      return `Colorstone${suffix}`;
     case 5:
       return "Finding";
     case 7:
@@ -47,9 +54,9 @@ const getItemLabel = (itemid, isSol = false) => {
   }
 };
 
-const getItemIcon = (itemid, isSol = false) => {
-  if (itemid === 3 && isSol) return Stone;
-  switch (itemid) {
+const getItemIcon = (itemid, cs = false) => {
+  if (cs && (Number(itemid) === 3 || Number(itemid) === 4)) return Stone;
+  switch (Number(itemid)) {
     case 3:
       return Gem;
     case 4:
@@ -61,9 +68,10 @@ const getItemIcon = (itemid, isSol = false) => {
   }
 };
 
-const getItemColor = (itemid, isSol = false) => {
-  if (itemid === 3 && isSol) return "#6343f1";
-  switch (itemid) {
+const getItemColor = (itemid, cs = false) => {
+  if (cs && Number(itemid) === 3) return "#6343f1"; // Solitaire
+  if (cs && Number(itemid) === 4) return "#00897b"; // Zemstone
+  switch (Number(itemid)) {
     case 3:
       return "#e91e63";
     case 4:
@@ -83,14 +91,15 @@ const norm = (v) =>
 
 const matchBagsForItem = (jobMaterial, allBags) => {
   const jobSize = norm(jobMaterial.size || jobMaterial.customsize || "");
-  const jobIsSol = isSolitaire(jobMaterial);
+  const jobIsCS = isCenterStone(jobMaterial);
   return allBags.filter((bag) => {
     const bagSize = norm(bag.Size || bag.customesize || "");
-    const bagIsSol = isSolitaire(bag);
-    // Solitaire must match solitaire, non-solitaire must match non-solitaire
-    if (jobIsSol !== bagIsSol) return false;
-    // For solitaire, also match by stone_uniqueno if available
-    if (jobIsSol) {
+    // NOTE: IsCenterStone is a property of the MATERIAL line only (it marks the
+    // design's center stone and drives the ":S" / ":Z" name suffix). Bags carry
+    // no such flag, so a center-stone line is still filled from a normal bag —
+    // never gate bag matching on it.
+    // Only when BOTH sides name a specific stone must the stone match.
+    if (jobIsCS) {
       const jobUnique = norm(jobMaterial.stone_uniqueno || "");
       const bagUnique = norm(bag.stone_uniqueno || "");
       if (jobUnique && bagUnique && jobUnique !== bagUnique) return false;
@@ -104,6 +113,11 @@ const matchBagsForItem = (jobMaterial, allBags) => {
     );
   });
 };
+
+// A bag with no remaining stock (0 pcs AND 0 wt) can't be engaged, so it is
+// hidden from the RM chip list.
+const hasRemainingStock = (bag) =>
+  Number(bag?.rempcs ?? 0) > 0 || Number(bag?.remwt ?? 0) > 0;
 
 const matchFindingBags = (jobMaterial, allBags) => {
   return allBags.filter(
@@ -132,7 +146,7 @@ const buildRequiredBags = () => {
 
   materialLines.forEach((material) => {
     const isFinding = material.itemid === 5;
-    const matIsSol = isSolitaire(material);
+    const matIsCS = isCenterStone(material);
     const matchedBags = isFinding
       ? matchFindingBags(material, allBags)
       : matchBagsForItem(material, allBags);
@@ -141,10 +155,10 @@ const buildRequiredBags = () => {
       unavailable.push({
         id: `na-${material.qid}`,
         itemid: material.itemid,
-        is_sol_gem: material.is_sol_gem || 0,
+        IsCenterStone: material.IsCenterStone ?? 0,
         stone_uniqueno: material.stone_uniqueno || "",
-        type: getItemLabel(material.itemid, matIsSol),
-        color: getItemColor(material.itemid, matIsSol),
+        type: getItemLabel(material.itemid, matIsCS),
+        color: getItemColor(material.itemid, matIsCS),
         shape: material.shape,
         quality: material.Quality,
         size: material.size || material.customsize || "",
@@ -168,15 +182,16 @@ const buildRequiredBags = () => {
     matchedBags.forEach((bag) => {
       const alreadyAdded = available.find((r) => r.id === bag.rfbag);
       if (!alreadyAdded) {
-        const bagIsSol = isSolitaire(bag);
+        // The center-stone flag belongs to the MATERIAL line (allJobMaterialData),
+        // so use the material's flag — the bag record may not carry it.
         available.push({
           id: bag.rfbag,
           rfbag: bag.rfbag,
           itemid: bag.itemid,
-          is_sol_gem: bag.is_sol_gem || 0,
-          stone_uniqueno: bag.stone_uniqueno || "",
-          type: getItemLabel(bag.itemid, bagIsSol),
-          color: getItemColor(bag.itemid, bagIsSol),
+          IsCenterStone: material.IsCenterStone ?? bag.IsCenterStone ?? 0,
+          stone_uniqueno: bag.stone_uniqueno || material.stone_uniqueno || "",
+          type: getItemLabel(bag.itemid, matIsCS),
+          color: getItemColor(bag.itemid, matIsCS),
           shape: bag.shape,
           quality: bag.Quality,
           size: bag.Size || bag.customesize || "",
@@ -203,16 +218,12 @@ const buildRequiredBags = () => {
       }
     });
   });
-
-  console.log('materialLines: ', materialLines);
-
   return { available, unavailable };
 };
 
 const BagScanning = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
-  console.log('state: ', state);
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState(null);
   const [lastOtherScanned, setLastOtherScanned] = useState(null);
@@ -269,7 +280,6 @@ const BagScanning = () => {
     );
     alljobdataRef.current = alljobdata; // add this line
     const required = buildRequiredBags();
-    console.log('required: ', required);
     const filterByLockerAndType = (list) =>
       list
         .filter((bag) => {
@@ -287,15 +297,15 @@ const BagScanning = () => {
         .filter((bag) => {
           switch (state.materialType?.toLowerCase()) {
             case "diamond":
-              return bag.type === "Diamond";
+              // Diamond/Solitaire — includes center-stone Diamond:S
+              return bag.type === "Diamond" || bag.type === "Diamond:S";
             case "colorstone":
-              return bag.type === "Colorstone";
+              // ColorStone/Gemstone — includes center-stone Colorstone:Z
+              return bag.type === "Colorstone" || bag.type === "Colorstone:Z";
             case "misc":
               return bag.type === "Misc";
             case "findings":
               return bag.type === "Finding";
-            case "solitore":
-              return bag.type === "Diamond:S";
             case "all":
             default:
               return true;
@@ -463,17 +473,17 @@ const BagScanning = () => {
 
       if (!state.otherBags.find((b) => b.id === val)) {
         const foundBag = ownership?.bag;
-        const foundIsSol = foundBag ? isSolitaire(foundBag) : false;
+        const foundIsCS = foundBag ? isCenterStone(foundBag) : false;
         actions.addOtherBag(
           foundBag
             ? {
               id: val,
               rfbag: foundBag.rfbag,
               itemid: foundBag.itemid,
-              is_sol_gem: foundBag.is_sol_gem || 0,
+              IsCenterStone: foundBag.IsCenterStone ?? 0,
               stone_uniqueno: foundBag.stone_uniqueno || "",
-              type: getItemLabel(foundBag.itemid, foundIsSol),
-              color: getItemColor(foundBag.itemid, foundIsSol),
+              type: getItemLabel(foundBag.itemid, foundIsCS),
+              color: getItemColor(foundBag.itemid, foundIsCS),
               shape: foundBag.shape,
               quality: foundBag.Quality,
               size: foundBag.Size || foundBag.customesize || "",
@@ -541,7 +551,7 @@ const BagScanning = () => {
     const scannedBagData = state.scannedBags.map((bag) => ({
       rfbag: bag.rfbag,
       itemid: bag.itemid,
-      is_sol_gem: bag.is_sol_gem || 0,
+      IsCenterStone: bag.IsCenterStone ?? 0,
       stone_uniqueno: bag.stone_uniqueno || "",
       type: bag.type,
       shape: bag.shape,
@@ -574,7 +584,7 @@ const BagScanning = () => {
   const isScanned = (bagId) => state.scannedBags.some((b) => b.id === bagId);
 
   const filteredBags = useMemo(() => {
-    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, Misc: 4, Finding: 5 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:Z": 4, Misc: 5, Finding: 6 };
 
     return [...state.requiredBags]
       .filter((bag) => {
@@ -586,14 +596,12 @@ const BagScanning = () => {
       .sort((a, b) => (order[a.type] || 999) - (order[b.type] || 999));
   }, [state.requiredBags, bagFilter]);
 
-    console.log('filteredBags: ', filteredBags);
-
   // One card per material LINE (qid) — not per shape/quality/color/size
   // combo — so two distinct material rows that happen to share those
   // attributes (e.g. two finding lines, same gold/18K/yellow spec, but
   // different findingtype) still render as two separate cards.
   const groupedAvailable = useMemo(() => {
-    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, Misc: 4, Finding: 5 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:Z": 4, Misc: 5, Finding: 6 };
     const map = new Map();
 
     filteredBags.forEach((bag) => {
@@ -611,7 +619,7 @@ const BagScanning = () => {
           size: bag.materialSize,
           findingtypename: bag.findingtypename,
           findingAccessories: bag.findingAccessories,
-          is_sol_gem: bag.is_sol_gem,
+          IsCenterStone: bag.IsCenterStone ?? 0,
           jobs: new Set(),
           qids: new Set(),
           materialPcs: 0,
@@ -647,13 +655,11 @@ const BagScanning = () => {
   // job — 10 for job 1/8477 (2 diamond + 2 colorstone + 2 misc + 4
   // finding), instead of dropping the unmatched ones silently.
   const combinedMaterials = useMemo(() => {
-    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, Misc: 4, Finding: 5 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:Z": 4, Misc: 5, Finding: 6 };
     return [...groupedAvailable, ...unavailableBags].sort(
       (a, b) => (order[a.type] || 999) - (order[b.type] || 999),
     );
   }, [groupedAvailable, unavailableBags]);
-
-  console.log('combinedMaterials: ', combinedMaterials);
 
   const scannedCount = state.scannedBags.length;
   const extraCount = state.otherBags.length;
@@ -666,9 +672,14 @@ const BagScanning = () => {
     totalBags > 0 ? Math.min((scannedCount / totalBags) * 100, 100) : 0;
 
   const renderAvailableMaterialCard = (group) => {
-    const Icon = getItemIcon(group.itemid, isSolitaire(group));
-    const scannedInGroup = group.bags.filter((b) => isScanned(b.id));
-    const groupJustScanned = group.bags.some((b) => lastScanned === b.id);
+    const Icon = getItemIcon(group.itemid, isCenterStone(group));
+    // Only list bags that still have stock. An already-scanned bag stays
+    // visible even at 0 so the user can still see / undo that scan.
+    const listedBags = group.bags.filter(
+      (b) => hasRemainingStock(b) || isScanned(b.id),
+    );
+    const scannedInGroup = listedBags.filter((b) => isScanned(b.id));
+    const groupJustScanned = listedBags.some((b) => lastScanned === b.id);
 
     return (
       <div
@@ -676,7 +687,7 @@ const BagScanning = () => {
         className={[
           "bag-scanning__bag-card",
           "bag-scanning__bag-card--material",
-          scannedInGroup.length === group.bags.length
+          listedBags.length > 0 && scannedInGroup.length === listedBags.length
             ? "bag-scanning__bag-card--scanned"
             : "",
           groupJustScanned ? "bag-scanning__bag-card--just-scanned" : "",
@@ -697,7 +708,12 @@ const BagScanning = () => {
 
           <span className="bag-scanning__bag-chip-list">
             RM:&nbsp;
-            {group.bags.map((bag, idx) => {
+            {listedBags.length === 0 && (
+              <span className="bag-scanning__bag-chip bag-scanning__bag-chip--empty">
+                No stock
+              </span>
+            )}
+            {listedBags.map((bag, idx) => {
               const scanned = isScanned(bag.id);
               const justScanned = lastScanned === bag.id;
               return (
@@ -779,10 +795,10 @@ const BagScanning = () => {
 
         <div className="bag-scanning__bag-status">
           <span className="bag-scanning__bag-badge bag-scanning__bag-badge--available">
-            Available ({group.bags.length})
+            Available ({listedBags.length})
           </span>
           <span className="bag-scanning__bag-badge bag-scanning__bag-badge--scan-progress">
-            {scannedInGroup.length}/{group.bags.length} Scanned
+            {scannedInGroup.length}/{listedBags.length} Scanned
           </span>
         </div>
       </div>
@@ -790,7 +806,7 @@ const BagScanning = () => {
   };
 
   const renderUnavailableMaterialCard = (mat) => {
-    const Icon = getItemIcon(mat.itemid, isSolitaire(mat));
+    const Icon = getItemIcon(mat.itemid, isCenterStone(mat));
     return (
       <div
         key={`unavail-${mat.id}`}
@@ -829,7 +845,7 @@ const BagScanning = () => {
   return (
     <div className="bag-scanning page-enter">
       <div className="bag-scanning__header">
-        <div className="bag-scanning__step-badge">Step 5</div>
+        {/* <div className="bag-scanning__step-badge">Step 5</div> */}
         <h1 className="bag-scanning__title">Bag Scanning</h1>
         <p className="bag-scanning__desc">
           Scan the available bags for the scanned jobs
@@ -1036,7 +1052,7 @@ const BagScanning = () => {
                 {state?.otherBags.map((bag) => {
                   const justScanned = lastOtherScanned === bag.id;
                   const hasDetails = !!bag.shape; // only true when we matched a real bag record
-                  const Icon = hasDetails ? getItemIcon(bag.itemid, isSolitaire(bag)) : PackagePlus;
+                  const Icon = hasDetails ? getItemIcon(bag.itemid, isCenterStone(bag)) : PackagePlus;
 
                   return (
                     <div

@@ -7,26 +7,23 @@ import {
   ChevronDown, ChevronUp, Hash, Weight,
 } from 'lucide-react';
 import Button from '@mui/material/Button';
+import { PROCESS_SUBTYPE_LABELS } from '../../Utils/processLabels';
 import './Summary.scss';
 
-const PROCESS_LABELS = {
-  'single-single': 'Single → Single',
-  'single-bulk': 'Single → Bulk',
-  'bulk-single': 'Bulk → Single',
-  'bulk-bulk': 'Bulk → Bulk RM',
-};
+const PROCESS_LABELS = PROCESS_SUBTYPE_LABELS;
 
 const MATERIAL_LABELS = {
   all: 'All',
-  diamond: 'Diamond',
-  colorstone: 'Colorstone',
-  misc: 'Misc / Findings',
-  Solitore: 'Diamond:S',
+  diamond: 'Diamond/Solitaire',
+  colorstone: 'ColorStone/Gemstone',
+  misc: 'Misc',
+  findings: 'Findings',
 };
 
 const getMaterialColor = (material) => {
   const m = (material || '').toLowerCase();
-  if (m.includes('solitore') || m.includes('solitaire')) return '#6343f1';
+  if (m.includes('diamond:s')) return '#6343f1';
+  if (m.includes('colorstone:z')) return '#00897b';
   if (m.includes('diamond')) return '#e91e63';
   if (m.includes('colorstone')) return '#9c27b0';
   if (m.includes('finding') || m.includes('misc')) return '#ff9800';
@@ -166,7 +163,7 @@ const Summary = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
   const jobverification = sessionStorage.getItem('jobverification');
-  useEffect(() => { actions.setStep(7); }, []); // eslint-disable-line
+  useEffect(() => { actions.setStep(jobverification === 'true' ? 4 : 7); }, []); // eslint-disable-line
   const allBags = Object.values(state.jobEntries || {}).flatMap(job => job.bags || []);
   const totalJobs = state.scannedJobs?.length || 0;
   const totalBags = allBags.length;

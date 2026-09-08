@@ -15,15 +15,29 @@ import { getMaster, isMasterKey } from '../../../Utils/masterStore';
 const getSession = (key) => { if (isMasterKey(key)) return getMaster(key, []); try { const r = sessionStorage.getItem(key); return r ? JSON.parse(r) : []; } catch { return []; } };
 const norm = (s) => String(s ?? '').trim().toUpperCase();
 
-const isSolitaire = (m) => Number(m?.is_sol_gem) === 1;
+// ── Center-stone (Solitaire / Zemstone) detection ──
+// IsCenterStone === 1 marks the line as a center stone:
+//   itemid 3 (Diamond)    -> Solitaire -> name suffix ":S"
+//   itemid 4 (Colorstone) -> Zemstone  -> name suffix ":Z"
+const isCenterStone = (m) =>
+  Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
+
+// Append ":S" / ":Z" to a material name when it is a center stone.
+const withCenterSuffix = (name, m) => {
+  if (!isCenterStone(m)) return name;
+  const u = String(name).toUpperCase();
+  if (u.endsWith(':S') || u.endsWith(':Z')) return name; // already suffixed
+  const id = Number(m?.itemid);
+  if (id === 3) return `${name}:S`;
+  if (id === 4) return `${name}:Z`;
+  return name;
+};
 
 const getEngagedTotals = (AllEngagedMaterial, serialJobNo, row) => {
   const matches = (AllEngagedMaterial || []).filter(e => {
     if (!e.isengage) return false;
     if (norm(e.serialjobno) !== norm(serialJobNo)) return false;
     if (e.itemid !== row.itemid) return false;
-    // Solitaire must match solitaire, non-solitaire must match non-solitaire
-    if (isSolitaire(row) !== isSolitaire(e)) return false;
     if (row.itemid === 5) {
       return norm(e.findingtypename || '') === norm(row.findingtypename || '') &&
         norm(e.findingAccessories || '') === norm(row.findingAccessories || '');
@@ -50,9 +64,10 @@ const findBagById = (id, pool) =>
   pool.find((b) => norm(b.rfbag) === norm(id) || norm(b.rfbag).endsWith(norm(id))) || null;
 
 // ── Does a raw bag record's spec match a material row's spec? ──
+// IsCenterStone is NOT compared: it belongs to the material line only, so a
+// center-stone row is still filled from an ordinary bag.
 const bagMatchesRow = (bag, row) => {
   if (bag.itemid !== row.itemid) return false;
-  if (isSolitaire(row) !== isSolitaire(bag)) return false;
   if (row.itemid === 5) {
     return norm(bag.findingtypename || '') === norm(row.findingtypename || '') &&
       norm(bag.findingAccessories || '') === norm(row.findingAccessories || '');
@@ -63,40 +78,43 @@ const bagMatchesRow = (bag, row) => {
     norm(bag.size || '') === norm(row.size || '');
 };
 
-const matColor = (item = '', isSol = false) => {
+const matColor = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return '#6343f1';
+  if (u.includes('COLORSTONE:Z')) return '#00897b';
   if (u.includes('DIAMOND')) return '#1565c0';
   if (u.includes('COLORSTONE')) return '#7b1fa2';
   if (u.includes('FINDING') || u.includes('MISC')) return '#e65100';
   return '#607d8b';
 };
 
-const matIcon = (item = '', isSol = false, size = 12) => {
+const matIcon = (item = '', size = 12) => {
   const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S')) return <Stone size={size} />;
+  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:Z')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING') || u.includes('MISC')) return <Wrench size={size} />;
   return <Package size={size} />;
 };
 
-const matLabel = (item = '', isSol = false) => {
+const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
+  if (u.includes('COLORSTONE:Z')) return 'Colorstone:Z';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
   return item;
 };
 
-const MATERIAL_ITEMID_MAP = { all: null, diamond: [3], colorstone: [4], misc: [7], findings: [5], Solitore: [3] };
+const MATERIAL_ITEMID_MAP = { all: null, diamond: [3], colorstone: [4], misc: [7], findings: [5] };
 
-// Filter function that handles solitaire (itemid 3 + is_sol_gem === 1)
+// Filter — Diamond/Solitaire & ColorStone/Gemstone include their center-stone variants
 const materialTypeFilter = (m, materialType) => {
   if (!materialType || materialType === 'all') return true;
-  if (materialType === 'Solitore') return m.itemid === 3 && isSolitaire(m);
-  if (materialType === 'diamond') return m.itemid === 3 && !isSolitaire(m);
+  // Diamond/Solitaire — includes center-stone Diamond:S
+  if (materialType === 'diamond') return m.itemid === 3;
+  // ColorStone/Gemstone — includes center-stone Colorstone:Z
   if (materialType === 'colorstone') return m.itemid === 4;
   if (materialType === 'misc') return m.itemid === 7;
   if (materialType === 'findings') return m.itemid === 5;
@@ -104,11 +122,13 @@ const materialTypeFilter = (m, materialType) => {
   return !allowed || allowed.includes(m.itemid);
 };
 
-// Item order for grouping: Diamond, Solitaire, Colorstone, Finding, Misc — used for
-// both the initial row order and the sort applied for display.
-const ITEM_ORDER = { 3: 1, 4: 2, 5: 3, 7: 4 };
+// Display order: Diamond, Diamond:S, Colorstone, Colorstone:Z, Finding, Misc
+const ITEM_ORDER = { 3: 1, 4: 3, 5: 5, 7: 6 };
 const itemSortKey = (r) => {
-  if (r.itemid === 3 && isSolitaire(r)) return 1.5; // between Diamond and Colorstone
+  if (isCenterStone(r)) {
+    if (Number(r.itemid) === 3) return 2; // Diamond:S after Diamond
+    if (Number(r.itemid) === 4) return 4; // Colorstone:Z after Colorstone
+  }
   return ITEM_ORDER[r.itemid] ?? 99;
 };
 
@@ -121,7 +141,7 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
     .filter(m => norm(m.SerialJobNo) === norm(serialJobNo))
     .filter(m => materialTypeFilter(m, materialType))
     .map((m, idx) => {
-      const mIsSol = isSolitaire(m);
+      const mIsCS = isCenterStone(m);
       const lineRequiredBags = requiredBags.filter(rb => rb.qid === m.qid && rb.jid === m.jid);
       const anyScanned = lineRequiredBags.some(rb => scannedRfbagSet.has(norm(rb.rfbag)));
       const hasRequired = lineRequiredBags.length > 0;
@@ -139,16 +159,16 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
         )
         .find(Boolean);
 
-      // 3) spec match — color_name OR color, size OR Size fallbacks
-      // Also match solitaire flag and stone_uniqueno for solitaire rows
+      // 3) spec match — color_name OR color, size OR Size fallbacks.
+      // IsCenterStone is not compared (material-line only); the stone_uniqueno
+      // check applies only when BOTH sides name a specific stone.
       const bySpec = ScannedBags.find(b =>
         b.itemid === m.itemid &&
-        isSolitaire(b) === mIsSol &&
         norm(b.shape || '') === norm(m.shape || '') &&
         norm(b.quality || b.Quality || '') === norm(m.Quality || '') &&
         norm(b.color_name || b.color || '') === norm(m.color || '') &&
         norm(b.size || b.Size || '') === norm(m.size || m.customsize || '') &&
-        (!mIsSol || !m.stone_uniqueno || !b.stone_uniqueno ||
+        (!mIsCS || !m.stone_uniqueno || !b.stone_uniqueno ||
           norm(b.stone_uniqueno) === norm(m.stone_uniqueno))
       );
 
@@ -172,9 +192,10 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
         rowKey: `${norm(serialJobNo)}||${m.qid ?? idx}`,
         qid: m.qid,
         jid: m.jid,
-        item: m.item || (mIsSol ? 'DIAMOND:S' : ''),
+        // Center stones carry the ":S" / ":Z" suffix on the material name.
+        item: withCenterSuffix(m.item || '', m),
         itemid: m.itemid,
-        is_sol_gem: m.is_sol_gem || 0,
+        IsCenterStone: m.IsCenterStone ?? 0,
         stone_uniqueno: m.stone_uniqueno || '',
         MaterialTypeName: m.MaterialTypeName || '',
         shape: m.shape || '',
@@ -265,7 +286,7 @@ const AddOtherBagModal = ({ jobId, rows, onAssign, onClose, scannedBags, AllBagL
       return;
     }
     onAssign(jobId, row.rowKey, bag);
-    setInfo(`Bag "${bag.rfbag}" assigned to ${row.MaterialTypeName || matLabel(row.item, isSolitaire(row))} · ${row.shape} · ${row.quality} · ${row.color}.`);
+    setInfo(`Bag "${bag.rfbag}" assigned to ${row.MaterialTypeName || matLabel(row.item)} · ${row.shape} · ${row.quality} · ${row.color}.`);
     setVal('');
   };
 
@@ -326,7 +347,7 @@ const AddOtherBagModal = ({ jobId, rows, onAssign, onClose, scannedBags, AllBagL
                   wt: b.remwt ?? b.wt ?? Number(b.scannedCwt ?? 0),
                   iscompany: b.iscompany,
                 })}
-                style={{ '--ic': matColor(b.item || b.type || '', isSolitaire(b)) }}
+                style={{ '--ic': matColor(b.item || b.type || '') }}
               >
                 <span className="bse-modal__bag-no">{b.rfbag}</span>
                 <span className="bse-modal__bag-spec">
@@ -345,7 +366,7 @@ const AddOtherBagModal = ({ jobId, rows, onAssign, onClose, scannedBags, AllBagL
 const MatRow = ({ sr, row, inputVals, locked, inputErrors, engagedLocked, onInput, onReturnRow, engagedUnlocked, remainingCwt }) => {
   const bag = row.matchedBag || row.manualBag;
   const isAuto = !!row.matchedBag;
-  const color = matColor(row.item, isSolitaire(row));
+  const color = matColor(row.item);
   const isEngaged = engagedLocked?.has(row.rowKey) && !!bag;
   const isUnlocked = engagedUnlocked?.has(row.rowKey);
   const noBagBlocked = !bag && row.requiredBagNotScanned;
@@ -414,7 +435,7 @@ const MatRow = ({ sr, row, inputVals, locked, inputErrors, engagedLocked, onInpu
     ].filter(Boolean).join(' ')}>
       <td className="bse-td bse-td--sr">{sr}</td>
       <td className="bse-td bse-td--mat">
-        <span className="bse-mat" style={{ color }}>{row.MaterialTypeName || matLabel(row.item, isSolitaire(row))}</span>
+        <span className="bse-mat" style={{ color }}>{row.MaterialTypeName || matLabel(row.item)}</span>
       </td>
       <td className="bse-td bse-td--desc">
         {row.shape} · {row.quality} · {row.color}{row.size ? ` · ${row.size}` : ''}
@@ -456,7 +477,7 @@ const JobBlock = ({
   // header summary pills
   const groups = {};
   rows.forEach((r) => {
-    const k = isSolitaire(r) ? 'DIAMOND:S' : (r.item || 'Other');
+    const k = withCenterSuffix(r.item || 'Other', r);
     if (!groups[k]) groups[k] = { pcs: 0, wt: 0 };
     groups[k].pcs += r.reqPcs || 0;
     groups[k].wt += r.reqWt || 0;
@@ -513,17 +534,15 @@ const JobBlock = ({
           ))}
         </div>
         <div className="bse-job-hdr__right">
-          {!saved && pendingCount > 0 && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<Plus size={12} />}
-              className="bse-add-other-btn"
-              onClick={(e) => { e.stopPropagation(); onOpenAddBag(job.id); }}
-            >
-              Add Other Bag
-            </Button>
-          )}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Plus size={12} />}
+            className="bse-add-other-btn"
+            onClick={(e) => { e.stopPropagation(); onOpenAddBag(job.id); }}
+          >
+            Add Other Bag
+          </Button>
           <span className={`bse-badge ${allDone ? 'bse-badge--ok' : ''}`}>
             {assignedCount}/{rows.length} bags
           </span>
@@ -636,8 +655,8 @@ const ReturnModal = ({ jobId, rows, inputs, onSave, onUnlock, onClose }) => {
                   <tr key={row.rowKey} className="bse-tr">
                     <td className="bse-td bse-td--sr">{idx + 1}</td>
                     <td className="bse-td bse-td--mat">
-                      <span className="bse-mat" style={{ color: matColor(row.item, isSolitaire(row)) }}>
-                        {matIcon(row.item, isSolitaire(row))}{matLabel(row.item, isSolitaire(row))}
+                      <span className="bse-mat" style={{ color: matColor(row.item) }}>
+                        {matIcon(row.item)}{matLabel(row.item)}
                       </span>
                     </td>
                     <td className="bse-td bse-td--desc">
@@ -696,11 +715,6 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
     ScannedJobList: getSession('scannedJobListData'),
   }));
   const { ScannedMaterials, ScannedBags, AllBagListData, AllEngagedMaterial, ScannedJobList } = sessionData;
-  // Temp debug — remove after fix
-  console.log('ScannedBags:', ScannedBags);
-  console.log('state.scannedBags:', state.scannedBags);
-  console.log('state.requiredBags:', state.requiredBags);
-
   const jobs = state?.scannedJobs?.length > 0 ? state.scannedJobs : [];
 
   const [initData] = useState(() => {
@@ -716,7 +730,7 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
           rowKey: bag.rowKey || `${norm(j.id)}||${bag.qid}`,
           qid: bag.qid, jid: bag.jid,
           item: bag.item || '', itemid: bag.itemid || 0,
-          is_sol_gem: bag.is_sol_gem || 0,
+          IsCenterStone: bag.IsCenterStone ?? 0,
           stone_uniqueno: bag.stone_uniqueno || '',
           MaterialTypeName: bag.MaterialTypeName || '',
           shape: bag.shape || '', quality: bag.quality || '',
@@ -802,15 +816,15 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
             const bagWt = rawBag ? (rawBag.remwt ?? rawBag.wt ?? Number(rawBag.scannedCwt ?? 0)) : 0;
             const iscompany = rawBag ? rawBag.iscompany : undefined;
             const rowKey = `extra-${norm(e.rfbag)}-${e.itemid}-${idx}`;
-            const eIsSol = isSolitaire(e);
-            const itemName = eIsSol ? 'DIAMOND:S' : (e.itemid === 3 ? 'DIAMOND' : e.itemid === 4 ? 'COLORSTONE' : e.itemid === 5 ? 'FINDING' : 'MISC');
+            const baseName = e.itemid === 3 ? 'DIAMOND' : e.itemid === 4 ? 'COLORSTONE' : e.itemid === 5 ? 'FINDING' : 'MISC';
+            const itemName = withCenterSuffix(baseName, e);
             inputsInit[rowKey] = { pcs: String(e.totalPcs), cwt: e.totalWt.toFixed(3) };
             engagedLockedInit.add(rowKey);
             const txnidList = [...e.txnids];
             return {
               rowKey, qid: e.qid ?? null, jid: e.jid ?? null,
               item: itemName, itemid: e.itemid,
-              is_sol_gem: e.is_sol_gem || 0,
+              IsCenterStone: e.IsCenterStone ?? 0,
               stone_uniqueno: e.stone_uniqueno || '',
               MaterialTypeName: null,
               shape: e.shape || '', quality: e.Quality || '', color: e.color || '', size: e.Size || '',
@@ -951,14 +965,14 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
         return {
           rowKey: r.rowKey, qid: r.qid, jid: r.jid, isUnusedBag: r.isUnusedBag,
           item: r.item, itemid: r.itemid,
-          is_sol_gem: r.is_sol_gem || 0,
+          IsCenterStone: r.IsCenterStone ?? 0,
           stone_uniqueno: r.stone_uniqueno || '',
           MaterialTypeName: r.MaterialTypeName,
           shape: r.shape, quality: r.quality, color: r.color, size: r.size,
           findingtypename: r.findingtypename || '', findingAccessories: r.findingAccessories || '',
           requiredPcs: r.reqPcs, requiredWt: r.reqWt,
-          rfbag: bag?.rfbag || null,
-          bag: bag ? { rfbag: bag.rfbag } : null,
+          rfbag: bag?.rfbag ?? null,
+          bag: bag ? { rfbag: bag.rfbag ?? '' } : null,
           iscompany: bag?.iscompany ?? null,
           txnid: r.txnid ?? null,
           pcs: parseFloat(inputs[r.rowKey]?.pcs) || 0,
@@ -1000,14 +1014,14 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
       return {
         rowKey: r.rowKey, qid: r.qid, jid: r.jid, isUnusedBag: r.isUnusedBag,
         item: r.item, itemid: r.itemid,
-        is_sol_gem: r.is_sol_gem || 0,
+        IsCenterStone: r.IsCenterStone ?? 0,
         stone_uniqueno: r.stone_uniqueno || '',
         MaterialTypeName: r.MaterialTypeName,
         shape: r.shape, quality: r.quality, color: r.color, size: r.size,
         findingtypename: r.findingtypename || '', findingAccessories: r.findingAccessories || '',
         requiredPcs: r.reqPcs, requiredWt: r.reqWt,
-        rfbag: bag?.rfbag || null,
-        bag: bag ? { rfbag: bag.rfbag } : null,
+        rfbag: bag?.rfbag ?? null,
+        bag: bag ? { rfbag: bag.rfbag ?? '' } : null,
         iscompany: bag?.iscompany ?? null,
         txnid: r.txnid ?? null,
         pcs: parseFloat(inputs[r.rowKey]?.pcs) || 0,
@@ -1028,12 +1042,12 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
       return {
         rowKey: r.rowKey, qid: r.qid, jid: r.jid, isUnusedBag: r.isUnusedBag,
         item: r.item, itemid: r.itemid,
-        is_sol_gem: r.is_sol_gem || 0,
+        IsCenterStone: r.IsCenterStone ?? 0,
         stone_uniqueno: r.stone_uniqueno || '',
-        rfbag: bag?.rfbag || null,
+        rfbag: bag?.rfbag ?? null,
         shape: r.shape, quality: r.quality, color: r.color, size: r.size,
         findingtypename: r.findingtypename || '', findingAccessories: r.findingAccessories || '',
-        bag: bag ? { rfbag: bag.rfbag } : null,
+        bag: bag ? { rfbag: bag.rfbag ?? '' } : null,
         iscompany: bag?.iscompany ?? null,
         txnid: r.txnid ?? null,
         pcs: parseFloat(updatedInputs[r.rowKey]?.pcs) || 0,

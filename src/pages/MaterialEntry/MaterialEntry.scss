@@ -1,4 +1,4 @@
-@import '../../styles/variables';
+@import "../../styles/variables";
 
 // ========================================
 // MATERIAL ENTRY - WRAPPER
@@ -67,7 +67,11 @@
     font-weight: 600 !important;
     font-size: 15px !important;
     border-radius: $border-radius-sm !important;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-light)
+    ) !important;
     color: var(--btn-primary-text) !important;
 
     &:disabled {
@@ -246,7 +250,8 @@
   width: 100%;
   text-align: center;
 
-  h2, h3 {
+  h2,
+  h3 {
     font-size: 18px;
     font-weight: 700;
     color: var(--text-primary);
@@ -323,7 +328,7 @@
   &__chip {
     font-size: 12px;
     font-weight: 600;
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
     padding: 4px 12px;
     border-radius: 8px;
     background: color-mix(in srgb, #22c55e 10%, transparent);
@@ -386,7 +391,7 @@
     }
 
     strong {
-      font-family: 'Roboto Mono', monospace;
+      font-family: "Roboto Mono", monospace;
       font-weight: 700;
     }
   }
@@ -515,7 +520,7 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
   }
 
   &__mat {
@@ -553,7 +558,7 @@
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
     background: var(--bg-surface);
     padding: 1px 6px;
     border-radius: 4px;
@@ -569,7 +574,7 @@
       font-size: 11px;
       font-weight: 600;
       color: #22c55e;
-      font-family: 'Roboto Mono', monospace;
+      font-family: "Roboto Mono", monospace;
       background: color-mix(in srgb, #22c55e 10%, transparent);
       padding: 1px 6px;
       border-radius: 4px;
@@ -626,7 +631,7 @@
     color: var(--text-primary);
 
     strong {
-      font-family: 'Roboto Mono', monospace;
+      font-family: "Roboto Mono", monospace;
     }
   }
 
@@ -689,7 +694,7 @@
       font-size: 18px;
       font-weight: 700;
       color: var(--text-primary);
-      font-family: 'Roboto Mono', monospace;
+      font-family: "Roboto Mono", monospace;
       margin: 0;
     }
 
@@ -789,7 +794,8 @@
     gap: 10px;
     padding: 8px 12px;
     align-items: center;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 30%, transparent);
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--border-color) 30%, transparent);
     transition: all 0.3s ease;
 
     &:hover {
@@ -810,7 +816,7 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
   }
 
   &__material {
@@ -893,7 +899,7 @@
 
     strong {
       color: var(--text-primary);
-      font-family: 'Roboto Mono', monospace;
+      font-family: "Roboto Mono", monospace;
     }
   }
 
@@ -924,7 +930,7 @@
   &__chip-no {
     font-weight: 600;
     color: var(--text-primary);
-    font-family: 'Roboto Mono', monospace;
+    font-family: "Roboto Mono", monospace;
   }
 }
 
@@ -981,14 +987,22 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
-
 
 @media (max-width: 1800px) {
- .material-entry{
-  height: calc(100vh - 0px - 40px) !important;
- }
-}
+  .material-entry {
+    height: calc(100vh - 0px - 5px) !important;
+    padding-top: 0px;
 
+    &__header {
+      margin-bottom: 10px;
+    }
+  }
+}
