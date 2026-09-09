@@ -1,7 +1,7 @@
 @import "../../styles/variables";
 
 .bag-scanning {
-  max-width: 1300px;
+  max-width: 1500px;
   margin: 0 auto;
   padding: 32px 0;
   display: flex;
@@ -348,9 +348,9 @@
     flex-direction: column;
     gap: 10px;
     min-height: 0; // allows children to scroll
-    width: 50%;
+    width: 65%;
     &--others {
-      width: 50%;
+      width: 35%;
     }
   }
 
@@ -541,9 +541,15 @@
     text-overflow: ellipsis;
   }
 
+  &__bag-jobnumber{
+    font-size: 14px;
+    font-weight: 600;
+  }
+
   &__bag-type {
     font-size: 13px;
-    color: var(--text-secondary);
+    color: #706868;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

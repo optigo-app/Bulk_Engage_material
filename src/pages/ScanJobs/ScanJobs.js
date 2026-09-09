@@ -19,7 +19,6 @@ const ScanJobs = () => {
   const [loaderProgress, setLoaderProgress] = useState(0);
   const [phase, setPhase] = useState(null);
   const [verificationResult, setVerificationResult] = useState({ validJobs: [], invalidJobs: [] });
-
   const allJobDataRef = useRef([]);
   const validSerialNosRef = useRef(new Set());
   const inputRef = useRef(null);
@@ -140,13 +139,27 @@ const ScanJobs = () => {
       (d) => d.serialjobno?.toLowerCase() === val.toLowerCase()
     );
 
+    // joblist SP does NOT return imagepath; resolve it from order_joblist material data.
+    const materialData = getJobMaterialData();
+    const norm = (s) => String(s ?? '').trim().toUpperCase();
+    const matchedMaterial = matchedJob
+      ? materialData.find(
+          (m) =>
+            norm(m.SerialJobNo) === norm(matchedJob.serialjobno) ||
+            (m.jid && matchedJob.jid && norm(m.jid) === norm(matchedJob.jid))
+        )
+      : materialData.find((m) => norm(m.SerialJobNo) === norm(val));
+
+    const resolvedImagepath =
+      matchedJob?.imagepath ?? matchedMaterial?.imagepath ?? null;
+
     const newJob = {
       id: val,
       number: `J/${String(jobCounter).padStart(1, '0')}`,
       scannedAt: new Date().toLocaleTimeString(),
       isValid: !!matchedJob,
       serialjobno: matchedJob?.serialjobno ?? val,
-      design: matchedJob?.design ?? null,
+      design: matchedJob?.design ?? matchedMaterial?.designno ?? null,
       category: matchedJob?.category ?? null,
       ccode: matchedJob?.ccode ?? null,
       cname: matchedJob?.cname ?? null,
@@ -154,7 +167,8 @@ const ScanJobs = () => {
       metal: matchedJob?.metal ?? null,
       status: matchedJob?.status ?? null,
       location: matchedJob?.location ?? null,
-      jid: matchedJob?.jid ?? null,
+      jid: matchedJob?.jid ?? matchedMaterial?.jid ?? null,
+      imagepath: resolvedImagepath
     };
 
     jobCounter++;

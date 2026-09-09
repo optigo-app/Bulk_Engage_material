@@ -436,9 +436,17 @@
   .select-process {
     padding: 0px !important;
 
+    &__header {
+      padding-top: 30px;
+    }
+
     &__title {
       font-size: 18px;
       margin-bottom: 3px;
+    }
+
+    &__progress {
+      margin-top: 50px;
     }
   }
 }

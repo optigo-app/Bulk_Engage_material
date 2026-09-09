@@ -175,8 +175,9 @@
   font-weight: 500 !important;
   font-size: 13px !important;
   border-radius: $border-radius-sm !important;
-  border-color: color-mix(in srgb, #22c55e 40%, transparent) !important;
-  color: #22c55e !important;
+  background-color: #22c55e !important;
+  color: white !important;
+  border: none !important;
 }
 
 // ─── Scan Prompt (scan-job phase) ────────────────────────────
@@ -755,11 +756,27 @@
 
 // ─── Right: Entry Panel ───────────────────────────────────────
 .sse-entry-panel {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  padding: 8px 8px 8px 8px;
   padding-top: 8px;
+
+  &__job-img {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface, var(--bg-input));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    z-index: 5;
+  }
 }
 
 // ─── Data Card ────────────────────────────────────────────────
@@ -908,7 +925,7 @@
   flex-shrink: 0;
   position: absolute;
   right: 0px;
-  bottom: 12%;
+  bottom: 3%;
 }
 
 // ─── Assign Hint ──────────────────────────────────────────────

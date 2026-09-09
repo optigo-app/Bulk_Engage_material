@@ -18,18 +18,18 @@ const norm = (s) => String(s ?? '').trim().toUpperCase();
 // ── Center-stone (Solitaire / Zemstone) detection ──
 // IsCenterStone === 1 marks the line as a center stone:
 //   itemid 3 (Diamond)    -> Solitaire -> name suffix ":S"
-//   itemid 4 (Colorstone) -> Zemstone  -> name suffix ":Z"
+//   itemid 4 (Colorstone) -> Zemstone  -> name suffix ":G"
 const isCenterStone = (m) =>
   Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
 
-// Append ":S" / ":Z" to a material name when it is a center stone.
+// Append ":S" / ":G" to a material name when it is a center stone.
 const withCenterSuffix = (name, m) => {
   if (!isCenterStone(m)) return name;
   const u = String(name).toUpperCase();
-  if (u.endsWith(':S') || u.endsWith(':Z')) return name; // already suffixed
+  if (u.endsWith(':S') || u.endsWith(':G')) return name; // already suffixed
   const id = Number(m?.itemid);
   if (id === 3) return `${name}:S`;
-  if (id === 4) return `${name}:Z`;
+  if (id === 4) return `${name}:G`;
   return name;
 };
 
@@ -81,7 +81,7 @@ const bagMatchesRow = (bag, row) => {
 const matColor = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return '#6343f1';
-  if (u.includes('COLORSTONE:Z')) return '#00897b';
+  if (u.includes('COLORSTONE:G')) return '#00897b';
   if (u.includes('DIAMOND')) return '#1565c0';
   if (u.includes('COLORSTONE')) return '#7b1fa2';
   if (u.includes('FINDING') || u.includes('MISC')) return '#e65100';
@@ -90,7 +90,7 @@ const matColor = (item = '') => {
 
 const matIcon = (item = '', size = 12) => {
   const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:Z')) return <Stone size={size} />;
+  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:G')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING') || u.includes('MISC')) return <Wrench size={size} />;
@@ -100,7 +100,7 @@ const matIcon = (item = '', size = 12) => {
 const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
-  if (u.includes('COLORSTONE:Z')) return 'Colorstone:Z';
+  if (u.includes('COLORSTONE:G')) return 'Colorstone:G';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
@@ -114,7 +114,7 @@ const materialTypeFilter = (m, materialType) => {
   if (!materialType || materialType === 'all') return true;
   // Diamond/Solitaire — includes center-stone Diamond:S
   if (materialType === 'diamond') return m.itemid === 3;
-  // ColorStone/Gemstone — includes center-stone Colorstone:Z
+  // ColorStone/Gemstone — includes center-stone Colorstone:G
   if (materialType === 'colorstone') return m.itemid === 4;
   if (materialType === 'misc') return m.itemid === 7;
   if (materialType === 'findings') return m.itemid === 5;
@@ -122,12 +122,12 @@ const materialTypeFilter = (m, materialType) => {
   return !allowed || allowed.includes(m.itemid);
 };
 
-// Display order: Diamond, Diamond:S, Colorstone, Colorstone:Z, Finding, Misc
+// Display order: Diamond, Diamond:S, Colorstone, Colorstone:G, Finding, Misc
 const ITEM_ORDER = { 3: 1, 4: 3, 5: 5, 7: 6 };
 const itemSortKey = (r) => {
   if (isCenterStone(r)) {
     if (Number(r.itemid) === 3) return 2; // Diamond:S after Diamond
-    if (Number(r.itemid) === 4) return 4; // Colorstone:Z after Colorstone
+    if (Number(r.itemid) === 4) return 4; // Colorstone:G after Colorstone
   }
   return ITEM_ORDER[r.itemid] ?? 99;
 };
@@ -192,7 +192,7 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
         rowKey: `${norm(serialJobNo)}||${m.qid ?? idx}`,
         qid: m.qid,
         jid: m.jid,
-        // Center stones carry the ":S" / ":Z" suffix on the material name.
+        // Center stones carry the ":S" / ":G" suffix on the material name.
         item: withCenterSuffix(m.item || '', m),
         itemid: m.itemid,
         IsCenterStone: m.IsCenterStone ?? 0,
@@ -220,7 +220,7 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
 // Scans/picks a bag and auto-assigns it to whichever pending row (in this job)
 // matches its item / shape / quality / color / size — same pattern as
 // SingleBulkEntry's global "Add Other Bag" modal.
-const AddOtherBagModal = ({ jobId, rows, onAssign, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName }) => {
+const AddOtherBagModal = ({ jobId, rows, onAssign, onAddNew, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName }) => {
   const [val, setVal] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -282,6 +282,16 @@ const AddOtherBagModal = ({ jobId, rows, onAssign, onClose, scannedBags, AllBagL
     }
     const row = pendingRows.find((r) => bagMatchesRow(bag, r));
     if (!row) {
+      // No pending row matches — if the job has any rows at all, the bag spec
+      // doesn't match any of them, so refuse. If the job has NO rows (empty
+      // job / "no material found"), allow creating a brand-new row from the
+      // bag so the user can still engage other material against that job.
+      if (rows.length === 0 && onAddNew) {
+        onAddNew(jobId, bag);
+        setInfo(`Bag "${bag.rfbag}" added as a new material line for this job.`);
+        setVal('');
+        return;
+      }
       setError(`No pending material in this job matches bag "${bag.rfbag}" — check item / shape / quality / color / size.`);
       return;
     }
@@ -381,7 +391,7 @@ const MatRow = ({ sr, row, inputVals, locked, inputErrors, engagedLocked, onInpu
     // locked state only for non-engaged rows that are saved — but still show input
     // Remove the locked check entirely — auto-save should never lock normal rows
     if (isExhausted) return <span className="bse-exhausted-cell">Scan other bag</span>;
-    if (!bag) return <span className="bse-chip bse-chip--none">No bag</span>;
+    if (!bag) return <span className="bse-chip bse-chip--none">No Engage</span>;
     return (
       <div className="bse-entry-cell">
         <input type="number"
@@ -456,7 +466,7 @@ const MatRow = ({ sr, row, inputVals, locked, inputErrors, engagedLocked, onInpu
               {bag.iscompany == 1 ? 'Company' : 'Customer'}
             </span>
           </span>
-        ) : <span className="bse-chip bse-chip--none">No bag</span>}
+        ) : <span className="bse-chip bse-chip--none">No Engage</span>}
       </td>
       <td className="bse-td bse-td--num">{row.reqPcs}</td>
       <td className="bse-td bse-td--num">{Number(row.reqWt).toFixed(3)}</td>
@@ -499,8 +509,7 @@ const JobBlock = ({
     return rows
       .filter((r) => {
         const bag = r.matchedBag || r.manualBag;
-        if (bag) return true; // always show rows that have a bag
-        // No-bag row: hide if another row with a bag exists for same spec
+        if (bag) return true;
         return !specWithAnyBag.has(specKey(r));
       })
       .map((r, idx) => ({ ...r, __idx: idx }))
@@ -527,11 +536,22 @@ const JobBlock = ({
         </span>
         <span className="bse-job-id">{job.id}</span>
         <div className="bse-pills">
-          {Object.entries(groups).map(([item, v]) => (
-            <span key={item} className="bse-pill" style={{ '--pc': matColor(item) }}>
-              <b>{matLabel(item)}</b>{v.wt.toFixed(3)} ctw · {v.pcs} pcs
+          <div>
+            {Object.entries(groups).map(([item, v]) => (
+              <span key={item} className="bse-pill" style={{ '--pc': matColor(item) }}>
+                <b>{matLabel(item)}</b>{v.wt.toFixed(3)} ctw · {v.pcs} pcs
+              </span>
+            ))}
+          </div>
+          <div>
+            {/* Add Heare  */}
+            <span className="bse-job-meta">
+              <span>Design#: <strong>{job.design || '—'}</strong></span>
+              <span>Serial for: <strong>{job.category || '—'}</strong></span>
+              <span>Customer: <strong>{job.ccode || '—'}</strong></span>
+              <span>Current Status: <strong>{job.status || '—'}</strong></span>
             </span>
-          ))}
+          </div>
         </div>
         <div className="bse-job-hdr__right">
           <Button
@@ -956,6 +976,41 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
     });
   };
 
+  // ── Add a brand-new material row to a job that had no system material lines ──
+  // Used when a job has "no material found" and the user adds an "Other Bag".
+  const handleAddNewBag = (jobId, bag) => {
+    const baseName = bag.itemid === 3 ? 'DIAMOND' : bag.itemid === 4 ? 'COLORSTONE' : bag.itemid === 5 ? 'FINDING' : 'MISC';
+    const item = withCenterSuffix(baseName, bag);
+    const rowKey = `other-${norm(bag.rfbag)}-${bag.itemid}-${Date.now()}`;
+    const matchedJob = jobs.find((j) => j.id === jobId);
+    const newRow = {
+      rowKey,
+      qid: null,
+      jid: matchedJob?.jid ?? null,
+      item, itemid: bag.itemid,
+      IsCenterStone: bag.IsCenterStone ?? 0,
+      stone_uniqueno: bag.stone_uniqueno || '',
+      MaterialTypeName: null,
+      shape: bag.shape || '', quality: bag.quality || '',
+      color: bag.color_name || bag.color || '', size: bag.size || '',
+      findingtypename: bag.findingtypename || '', findingAccessories: bag.findingAccessories || '',
+      reqPcs: 0, reqWt: 0,
+      matchedBag: null, manualBag: bag,
+      isUnusedBag: true, isExtraEngaged: false,
+      requiredBagNotScanned: false, requiredBagRfbag: null,
+      txnid: null,
+    };
+    setJobRows((prev) => ({
+      ...prev,
+      [jobId]: [...(prev[jobId] || []), newRow],
+    }));
+    setInputs((prev) => ({
+      ...prev,
+      [rowKey]: { pcs: '', cwt: '' },
+    }));
+    setOpenMap((prev) => ({ ...prev, [jobId]: true }));
+  };
+
   // ── Save ALL jobs at once (called by Continue to Summary) ──
   const handleSaveAll = () => {
     jobs.forEach((j) => {
@@ -963,7 +1018,8 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
       const entries = rows.map((r) => {
         const bag = r.matchedBag || r.manualBag;
         return {
-          rowKey: r.rowKey, qid: r.qid, jid: r.jid, isUnusedBag: r.isUnusedBag,
+          rowKey: r.rowKey, qid: r.qid, jid: r.jid ?? j.jid ?? null,
+          serialjobno: j.id, isUnusedBag: r.isUnusedBag,
           item: r.item, itemid: r.itemid,
           IsCenterStone: r.IsCenterStone ?? 0,
           stone_uniqueno: r.stone_uniqueno || '',
@@ -1009,10 +1065,13 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
       const b = r.matchedBag || r.manualBag;
       return b && !engagedLocked.has(r.rowKey) && !(parseFloat(inputs[r.rowKey]?.cwt) > 0);
     })) return;
+    const matchedJob = jobs.find((j) => j.id === jobId);
+    const fallbackJid = matchedJob?.jid ?? null;
     const entries = rows.map((r) => {
       const bag = r.matchedBag || r.manualBag;
       return {
-        rowKey: r.rowKey, qid: r.qid, jid: r.jid, isUnusedBag: r.isUnusedBag,
+        rowKey: r.rowKey, qid: r.qid, jid: r.jid ?? fallbackJid,
+        serialjobno: jobId, isUnusedBag: r.isUnusedBag,
         item: r.item, itemid: r.itemid,
         IsCenterStone: r.IsCenterStone ?? 0,
         stone_uniqueno: r.stone_uniqueno || '',
@@ -1117,8 +1176,18 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
             if (rows.length === 0)
               return (
                 <div key={job.id} className="bse-empty-job">
-                  <Info size={13} />
-                  <span>Job <strong>{job.id}</strong> — no material lines found in system data.</span>
+                  <div className="bse-empty-job__info">
+                    <Info size={13} />
+                    <span>Job <strong>{job.id}</strong> — no material lines found in system data.</span>
+                  </div>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setAddBagJobId(job.id)}
+                    className="bse-empty-job__add-btn"
+                  >
+                    + Add Other Bag
+                  </Button>
                 </div>
               );
             return (
@@ -1149,6 +1218,7 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
             jobId={addBagJobId}
             rows={jobRows[addBagJobId] || []}
             onAssign={handleAssignToJob}
+            onAddNew={handleAddNewBag}
             onClose={() => setAddBagJobId(null)}
             scannedBags={ScannedBags}
             AllBagListData={AllBagListData}
@@ -1208,7 +1278,7 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
                         <span className="bse-sidebar__spec">{r.shape} · {r.quality} · {r.color}</span>
                         {bag
                           ? <span className="bse-sidebar__bag">{bag.rfbag}</span>
-                          : <span className="bse-sidebar__nobag">No bag</span>
+                          : <span className="bse-sidebar__nobag">No Engage</span>
                         }
                         <span className="bse-sidebar__vals">
                           {inputs[r.rowKey]?.pcs || '—'} / {inputs[r.rowKey]?.cwt || '—'}

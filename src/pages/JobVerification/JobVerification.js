@@ -3,29 +3,36 @@ import { useNavigate } from 'react-router-dom';
 import { useEngage } from '../../context/EngageContext';
 import {
   ScanLine, ArrowLeft, ArrowRight, RotateCcw, CheckCircle2,
-  AlertCircle, Gem, Palette, Wrench, Stone, Package,
+  AlertCircle, Gem, Palette, Wrench, Stone, Package, AlertTriangle,
 } from 'lucide-react';
 import Button from '@mui/material/Button';
-import { getMaster } from '../../Utils/masterStore';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import { getMaster, removeMaster } from '../../Utils/masterStore';
 import { CallApi } from '../../API/CallApi/CallApi';
+import { refreshSessionData } from '../../Utils/refreshSessionData';
 import '../MaterialEntry/BulkSingleEntry/Bulksingleentry.scss';
 import './JobVerification.scss';
+import { FormControlLabel, Switch } from '@mui/material';
 
 const norm = (s) => String(s ?? '').trim().toUpperCase();
 const getEngagedMaterial = () => getMaster('allEngagedMaterial', []);
+const getJobListData = () => getMaster('allJobListData', []);
 
 // ── Center-stone (Solitaire / Zemstone) detection ──
-// IsCenterStone === 1: itemid 3 -> ":S" (Solitaire), itemid 4 -> ":Z" (Zemstone)
+// IsCenterStone === 1: itemid 3 -> ":S" (Solitaire), itemid 4 -> ":G" (Zemstone)
 const isCenterStone = (m) =>
   Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
 
 const withCenterSuffix = (name, m) => {
   if (!isCenterStone(m)) return name;
   const u = String(name).toUpperCase();
-  if (u.endsWith(':S') || u.endsWith(':Z')) return name; // already suffixed
+  if (u.endsWith(':S') || u.endsWith(':G')) return name; // already suffixed
   const id = Number(m?.itemid);
   if (id === 3) return `${name}:S`;
-  if (id === 4) return `${name}:Z`;
+  if (id === 4) return `${name}:G`;
   return name;
 };
 
@@ -40,7 +47,7 @@ const itemName = (row) => {
 const matColor = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return '#6343f1';
-  if (u.includes('COLORSTONE:Z')) return '#00897b';
+  if (u.includes('COLORSTONE:G')) return '#00897b';
   if (u.includes('DIAMOND')) return '#e91e63';
   if (u.includes('COLORSTONE')) return '#9c27b0';
   return '#ff9800';
@@ -48,7 +55,7 @@ const matColor = (item = '') => {
 
 const matIcon = (item = '', size = 13) => {
   const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:Z')) return <Stone size={size} />;
+  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:G')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING')) return <Wrench size={size} />;
@@ -58,7 +65,7 @@ const matIcon = (item = '', size = 13) => {
 const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
-  if (u.includes('COLORSTONE:Z')) return 'Colorstone:Z';
+  if (u.includes('COLORSTONE:G')) return 'Colorstone:G';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
@@ -83,13 +90,27 @@ const JobVerification = () => {
   // Validation errors per txnid: { [txnid]: { pcs?: string, cwt?: string } }
   const [inputErrors, setInputErrors] = useState({});
 
+  // Confirm Engagement dialog + processing + success states
+  const [showDialog, setShowDialog] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  // Serial job no that was scanned but has no engaged material
+  const [noMaterialJob, setNoMaterialJob] = useState('');
+
   const inputRef = useRef(null);
   const bufferRef = useRef('');
   const bufferTimerRef = useRef(null);
 
   const allEngaged = useMemo(() => getEngagedMaterial(), []);
+  const allJobList = useMemo(() => getJobListData(), []);
+  const [jobVerification, setJobVerification] = useState();
 
   useEffect(() => {
+    // This page owns the Job Verification flow, so make sure the sidebar shows
+    // the JV step list while we're here (it may have been turned off if the
+    // user previously continued into the normal Engage Material flow).
+    try { sessionStorage.setItem('jobverification', 'true'); } catch {}
     actions.setStep(3);
     if (!state.locker) navigate('/select-locker');
     inputRef.current?.focus();
@@ -139,10 +160,23 @@ const JobVerification = () => {
 
     if (!rows.length) {
       setJob(null);
-      setError(`No engaged material found for job "${serial}".`);
+      setError('');
+      setNoMaterialJob(serial);
       setScanValue('');
-      inputRef.current?.focus();
       return;
+    }
+    setNoMaterialJob('');
+
+    // Auto-set "Engage Completed?" toggle based on the job's isenage value
+    // from the joblist API (allJobListData):
+    //   isenage == 2 → ON (engage completed)
+    //   isenage == 1 → OFF
+    const matchedJobRow = allJobList.find(
+      (j) => norm(j.serialjobno) === norm(serial)
+    );
+    if (matchedJobRow && matchedJobRow.isenage != null) {
+      const newVal = Number(matchedJobRow.isenage) === 2;
+      setJobVerification(newVal);
     }
 
     // Seed inputs from original engaged values
@@ -187,6 +221,7 @@ const JobVerification = () => {
 
   // Return button click — unlock row for editing
   const handleReturnClick = (r) => {
+    if (jobVerification) return; // Engage Completed → no returns allowed
     if (!hasTxn(r.txnid)) { setError('No transaction id found.'); return; }
     setError('');
     setReturnedTxns((prev) => {
@@ -198,6 +233,7 @@ const JobVerification = () => {
 
   // Return All button click — mark for returnall API, no input needed
   const handleReturnAll = (r) => {
+    if (jobVerification) return; // Engage Completed → no returns allowed
     if (!hasTxn(r.txnid)) return;
     setReturnAllTxns((prev) => {
       const next = new Set(prev);
@@ -224,15 +260,26 @@ const JobVerification = () => {
     (e) => e?.pcs || e?.cwt
   );
 
-  const handleContinueToSummary = async () => {
+  // SAVE button click — show the Confirm Engagement dialog
+  const handleSave = () => {
     if (!job) return;
     if (hasAnyErrors) return;
+    setSaveError('');
+    setShowDialog(true);
+  };
+
+  // Confirm Engagement dialog → "Bagging Running" (0) or "Bagging Completed" (1)
+  const handleEngage = async (isengagecompleted) => {
+    if (!job) return;
+    setSaveError('');
+    setShowDialog(false);
+    setIsProcessing(true);
 
     const reportData = (() => {
       try { return JSON.parse(sessionStorage.getItem('reportVarible') || '{}'); }
       catch { return {}; }
     })();
-    const appuserid = atob(reportData?.LUId || '');
+    const appuserid = reportData?.LUId || '';
     const clientIP = sessionStorage.getItem('clientIpAddress') || '';
 
     // 1. Call returnall API for "Return All" rows (no changes)
@@ -278,16 +325,14 @@ const JobVerification = () => {
       state.employee?.id ?? state.employee?.eid ?? state.employee?.empid ?? ''
     );
 
-    const bags = job.rows
+    // Partial-return rows: send (original - entered) as the remaining engaged qty
+    const partialRows = job.rows
       .filter((r) => hasTxn(r.txnid) && returnedTxns.has(r.txnid) && !returnAllTxns.has(r.txnid))
       .map((r) => {
-        const item = withCenterSuffix(r.item || itemName(r), r);
         const inp = inputs[r.txnid] || {
           pcs: String(r.isspcs ?? ''),
           cwt: Number(r.isswt ?? 0).toFixed(3),
         };
-
-        // Partial return: original - entered = remaining to keep engaged
         const origPcs = Number(r.isspcs ?? 0);
         const origWt = Number(r.isswt ?? 0);
         const enteredPcs = parseFloat(inp.pcs) || 0;
@@ -308,38 +353,61 @@ const JobVerification = () => {
           jid: resolvedJid,
           qid: resolvedQid,
           rfbag: r.rfbag || '',
-          bag: r.rfbag ? { rfbag: r.rfbag } : null,
-          item,
-          itemid: r.itemid,
-          material: item,
-          shape: r.shape || '',
-          quality: r.Quality || '',
-          color: r.color || '',
-          size: r.Size || '',
-          findingtypename: r.findingtypename || '',
-          findingAccessories: r.findingAccessories || '',
-          iscompany: r.iscompany,
-          pcs: remainingPcs,   // original - returned = remaining
-          wt: remainingWt,     // original - returned = remaining
-          reqPcs: origPcs,
-          reqWt: origWt,
-          requiredPcs: origPcs,
-          requiredWt: origWt,
-          rowKey: `${norm(item)}|${norm(r.shape)}|${norm(r.Quality)}|${norm(r.color)}|${norm(r.Size)}`,
-          desc: [r.shape, r.Quality, r.color, r.Size].filter(Boolean).join(' · '),
-          isUnusedBag: false,
+          eid,
+          wt: remainingWt,
+          pcs: remainingPcs,
+          isengagecompleted,
         };
-      });
+      })
+      .filter((r) => r.wt > 0 || r.pcs > 0);
 
-    actions.setScannedJobs([{
-      id: job.serialjobno,
-      serialjobno: job.serialjobno,
-      jid: resolvedJid,
-      ccode: job.rows[0]?.ccode ?? '',
-    }]);
+    // 3. Call engagesave API for the partial-return rows
+    if (partialRows.length > 0) {
+      try {
+        const apiBody = {
+          con: JSON.stringify({
+            id: '',
+            mode: 'engagesave',
+            appuserid,
+            IPAddress: clientIP,
+          }),
+          p: JSON.stringify({ data: partialRows }),
+          f: 'DynamicReport ( get sp list )',
+        };
+        await CallApi(apiBody);
+      } catch (err) {
+        console.error('Engage save error:', err);
+        setIsProcessing(false);
+        setSaveError('Engage save failed. Please try again.');
+        return;
+      }
+    }
 
-    actions.updateJobEntry('bulk-material', { bags });
-    navigate('/summary');
+    // 4. Cleanup + show the success screen (no navigation)
+    sessionStorage.removeItem('scannedBagData');
+    sessionStorage.removeItem('scannedJobListData');
+    sessionStorage.removeItem('scannedJobMaterialData');
+    setIsProcessing(false);
+    setIsSuccess(true);
+    actions.setComplete(true);
+  };
+
+  const handleNewProcess = async () => {
+    ['allJobListData', 'allBagListData', 'allEmployeeLockerData', 'allJobMaterialData', 'allEngagedMaterial'].forEach(
+      (k) => removeMaster(k),
+    );
+    sessionStorage.removeItem('scannedBagData');
+    sessionStorage.removeItem('scannedJobListData');
+    sessionStorage.removeItem('scannedJobMaterialData');
+    setIsProcessing(true);
+    try {
+      await refreshSessionData(setIsProcessing);
+    } catch (err) {
+      console.error('Session refresh error:', err);
+    }
+    setIsProcessing(false);
+    actions.reset();
+    navigate('/');
   };
 
   const pills = useMemo(() => {
@@ -355,6 +423,151 @@ const JobVerification = () => {
   }, [job]);
 
   const anyAction = returnedTxns.size > 0 || returnAllTxns.size > 0;
+
+  // Build engagesave rows from the current job's engaged material.
+  // isengagecompleted: 0 = Bagging Running, 1 = Bagging Completed
+  const buildEngageRows = (isengagecompleted) => {
+    if (!job) return [];
+    const eid = String(
+      state.employee?.id ?? state.employee?.eid ?? state.employee?.empid ?? ''
+    );
+
+    const allJobs = getMaster('allJobListData', []);
+    const matchedJobRow = allJobs.find(
+      (j) => norm(String(j.SerialJobNo ?? j.serialjobno ?? '')) === norm(job.serialjobno)
+    );
+    const resolvedJid = String(matchedJobRow?.JId ?? matchedJobRow?.jid ?? '');
+
+    const jobMaterialData = (() => {
+      try { return JSON.parse(sessionStorage.getItem('scannedJobMaterialData') || '[]'); }
+      catch { return []; }
+    })();
+
+    return job.rows
+      .filter((r) => hasTxn(r.txnid))
+      .map((r) => {
+        const matLine = jobMaterialData.find(
+          (m) => norm(m.SerialJobNo) === norm(job.serialjobno) &&
+            norm(m.shape) === norm(r.shape) &&
+            norm(m.Quality) === norm(r.Quality) &&
+            norm(m.color) === norm(r.color) &&
+            norm(m.Size ?? m.size ?? '') === norm(r.Size)
+        );
+        const resolvedQid = String(matLine?.qid ?? '');
+        return {
+          txnid: r.txnid,
+          jid: resolvedJid,
+          qid: resolvedQid,
+          rfbag: r.rfbag || '',
+          eid,
+          wt: Number(r.isswt ?? 0),
+          pcs: Number(r.isspcs ?? 0),
+          isengagecompleted,
+        };
+      });
+  };
+
+  // Call engagesave API in the background (for the toggle change)
+  const callEngageSaveInBackground = async (isengagecompleted) => {
+    try {
+      const rows = buildEngageRows(isengagecompleted);
+      if (!rows.length) return;
+      const reportData = (() => {
+        try { return JSON.parse(sessionStorage.getItem('reportVarible') || '{}'); }
+        catch { return {}; }
+      })();
+      const appuserid = reportData?.LUId || '';
+      const clientIP = sessionStorage.getItem('clientIpAddress') || '';
+      const apiBody = {
+        con: JSON.stringify({
+          id: '',
+          mode: 'engagesave',
+          appuserid,
+          IPAddress: clientIP,
+        }),
+        p: JSON.stringify({ data: rows }),
+        f: 'DynamicReport ( get sp list )',
+      };
+      await CallApi(apiBody);
+    } catch (err) {
+      console.error('Background engage save error:', err);
+    }
+  };
+
+  // "Engage Completed?" is per-job engage state — it does NOT control the
+  // sidebar flow flag, so it must not touch sessionStorage('jobverification').
+  const handleJobVerificationChange = (e) => {
+    const val = e.target.checked;
+    setJobVerification(val);
+    // Call engagesave API in the background: ON → isengagecompleted=1, OFF → isengagecompleted=0
+    callEngageSaveInBackground(val ? 1 : 0);
+  };
+
+  // No engaged material → user continues into the normal Engage Material flow.
+  // Switch the sidebar off the Job Verification step list and reset progress
+  // to "Select Process" so the sidebar reflects where the user actually is.
+  const handleGoToEngageMaterial = () => {
+    try { sessionStorage.setItem('jobverification', 'false'); } catch {}
+    setNoMaterialJob('');
+    actions.setStep(3);
+    navigate('/select-process');
+  };
+
+  // ══ Success screen (after SAVE) ══
+  if (isSuccess) {
+    return (
+      <div className="job-verify page-enter">
+        <div className="job-verify__result">
+          <div className="job-verify__result-card job-verify__result-card--success">
+            <div className="job-verify__result-icon job-verify__result-icon--success">
+              <CheckCircle2 size={56} />
+            </div>
+            <h1>Return Saved Successfully!</h1>
+            <p>The engaged material for this job has been updated.</p>
+            <div className="job-verify__result-details">
+              <div className="job-verify__result-detail">
+                <span>Job</span>
+                <strong>{job?.serialjobno || '—'}</strong>
+              </div>
+              <div className="job-verify__result-detail">
+                <span>Return All</span>
+                <strong>{returnAllTxns.size}</strong>
+              </div>
+              <div className="job-verify__result-detail">
+                <span>Partial Return</span>
+                <strong>{Math.max(0, returnedTxns.size - returnAllTxns.size)}</strong>
+              </div>
+            </div>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              onClick={handleNewProcess}
+              startIcon={<RotateCcw size={18} />}
+              className="job-verify__result-btn"
+            >
+              Start New Process
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ══ Processing screen ══
+  if (isProcessing) {
+    return (
+      <div className="job-verify page-enter">
+        <div className="job-verify__result">
+          <div className="job-verify__result-card">
+            <div className="job-verify__result-spinner" />
+            <h2>Processing Return...</h2>
+            <p>Saving the engaged material. Please wait.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="job-verify page-enter">
@@ -384,8 +597,31 @@ const JobVerification = () => {
           </div>
         </div>
 
+
+
         <div className="job-verify__topbar-right">
-          <div className="job-verify__title-block">
+
+          <div className={`job-verify__job-verifynew ${!job ? 'job-verify__job-verifynew--disabled' : ''}`}>
+            <FormControlLabel
+              className="job-verify__job-verify-toggle"
+              control={
+                <Switch
+                  checked={jobVerification}
+                  onChange={handleJobVerificationChange}
+                  size="small"
+                  color="primary"
+                  disabled={!job}
+                />
+              }
+              label="Engage Completed ?"
+              labelPlacement="start"
+            />
+            <span className={`job-verify__job-verify-state ${jobVerification ? 'job-verify__job-verify-state--on' : ''}`}>
+              {jobVerification ? 'ON' : 'OFF'}
+            </span>
+          </div>
+
+          {/* <div className="job-verify__title-block">
             <span className="job-verify__title">Job Verification — Return Material</span>
             <span className="job-verify__sub">Scan a job to view and return its engaged material.</span>
           </div>
@@ -394,7 +630,7 @@ const JobVerification = () => {
               <CheckCircle2 size={13} />
               {returnedTxns.size} entr{returnedTxns.size === 1 ? 'y' : 'ies'} unlocked
             </span>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -402,8 +638,44 @@ const JobVerification = () => {
         <div className="job-verify__error"><AlertCircle size={13} /> {error}</div>
       )}
 
+      {saveError && (
+        <div className="job-verify__error"><AlertTriangle size={13} /> {saveError}</div>
+      )}
+
       <div className="job-verify__body">
-        {!job ? (
+        {noMaterialJob ? (
+          /* ── No engaged material found for the scanned job ── */
+          <div className="job-verify__nomat">
+            <div className="job-verify__nomat-icon"><AlertTriangle size={44} /></div>
+            <h2>No Engage Material Found</h2>
+            <p>
+              Job <strong>{noMaterialJob}</strong> has no engaged material to return.
+            </p>
+            <p className="job-verify__nomat-hint">
+              Continue to the Engage Material process to engage material for this job.
+            </p>
+            <div className="job-verify__nomat-actions">
+              <Button
+                variant="contained"
+                color="primary"
+                size="large"
+                onClick={handleGoToEngageMaterial}
+                endIcon={<ArrowRight size={18} />}
+                className="job-verify__nomat-btn"
+              >
+                Engage Material
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => { setNoMaterialJob(''); setTimeout(() => inputRef.current?.focus(), 80); }}
+                startIcon={<ScanLine size={16} />}
+                className="job-verify__nomat-rescan"
+              >
+                Scan Another Job
+              </Button>
+            </div>
+          </div>
+        ) : !job ? (
           <div className="job-verify__empty">
             <div className="job-verify__empty-icon"><ScanLine size={38} /></div>
             <span>Scan a job to load its engaged material.</span>
@@ -475,7 +747,7 @@ const JobVerification = () => {
                               </span>
                             </span>
                           ) : (
-                            <span className="bse-chip bse-chip--none">No bag</span>
+                            <span className="bse-chip bse-chip--none">No Engage</span>
                           )}
                         </td>
 
@@ -548,6 +820,8 @@ const JobVerification = () => {
                             <span className="job-verify__returned-tag">
                               <CheckCircle2 size={11} /> Editing
                             </span>
+                          ) : jobVerification ? (
+                            <span className="bse-muted">—</span>
                           ) : (
                             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                               <button
@@ -589,14 +863,98 @@ const JobVerification = () => {
           variant="contained"
           color="primary"
           size="large"
-          onClick={handleContinueToSummary}
-          disabled={!anyAction || hasAnyErrors}
-          endIcon={<ArrowRight size={20} />}
+          onClick={handleSave}
+          disabled={jobVerification || !anyAction || hasAnyErrors}
+          startIcon={<CheckCircle2 size={20} />}
           className="job-verify__continue-btn"
         >
-          Continue to Summary
+          SAVE
         </Button>
       </div>
+
+      {/* ══ Confirm Engagement dialog (shown inline, no navigation) ══ */}
+      <Dialog
+        open={showDialog}
+        onClose={() => setShowDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: '#1a2744',
+            border: '1px solid #2a3f5f',
+            borderRadius: '16px',
+            color: '#fff',
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', pt: 4, fontWeight: 700, fontSize: 20 }}>
+          Confirm Engagement
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
+          <div className="job-verify__dialog-icon">
+            <AlertTriangle size={48} />
+          </div>
+          <p style={{ color: '#94a3b8', marginTop: 16 }}>
+            Are you sure you want to save the return for job{' '}
+            <strong style={{ color: '#fff' }}>{job?.serialjobno}</strong>? This action will finalize
+            the process.
+          </p>
+          <p style={{ color: '#64748b', marginTop: 8, fontSize: 13 }}>
+            Choose <strong style={{ color: '#f59e0b' }}>Bagging Running</strong> if bagging is still
+            in progress, or <strong style={{ color: '#4caf50' }}>Bagging Completed</strong> once it is done.
+          </p>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 4, gap: 2, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setShowDialog(false)}
+            sx={{
+              color: '#94a3b8',
+              borderColor: '#2a3f5f',
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              height: 44,
+              '&:hover': { borderColor: '#94a3b8' }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => handleEngage(0)}
+            sx={{
+              background: 'linear-gradient(135deg, #b45309, #f59e0b)',
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 44,
+              fontSize: 15,
+              '&:hover': { background: 'linear-gradient(135deg, #d97706, #fbbf24)' }
+            }}
+          >
+            Bagging Running
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => handleEngage(1)}
+            sx={{
+              background: 'linear-gradient(135deg, #2e7d32, #4caf50)',
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 44,
+              fontSize: 15,
+              '&:hover': { background: 'linear-gradient(135deg, #388e3c, #66bb6a)' }
+            }}
+          >
+            Bagging Completed
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

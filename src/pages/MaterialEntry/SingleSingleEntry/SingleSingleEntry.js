@@ -6,6 +6,7 @@ import {
 import Button from '@mui/material/Button';
 import './SingleSingleEntry.scss';
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
+import defaultJobImg from '../../../images/default.jpg';
 
 
 const getSession = (key) => {
@@ -302,7 +303,6 @@ const SingleSingleEntry = ({ state, actions }) => {
     if (completedJobs.includes(norm(val))) {
       const lines = getMaterialLinesForJob(val, ScannedMaterials, state.requiredBags, state.scannedBags, state.materialType);
       const jobEntry = state.jobEntries?.[norm(val)];
-
       const restored = lines.map((line) => {
         const saved = jobEntry?.bags?.find((b) => b.lineKey === line.lineKey);
         return {
@@ -338,7 +338,13 @@ const SingleSingleEntry = ({ state, actions }) => {
           requiredBagNotScanned: false,
         }));
 
-      setActiveJob({ id: val, locked: true });
+      const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
+      console.log('jobInfo: ', jobInfo);
+      setActiveJob({
+        id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
+        Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
+        CurrentStatus: jobInfo?.status
+      });
       setMaterialLines([...restored, ...restoredExtras]);
       setActiveLineKey(null);
       setJobScanValue('');
@@ -499,7 +505,13 @@ const SingleSingleEntry = ({ state, actions }) => {
     );
 
     const allLines = [...withAutoMatch, ...extraLines, ...otherBagLines];
-    setActiveJob({ id: val, locked: false });
+    const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
+    console.log('jobInfo: ', jobInfo);
+    setActiveJob({
+      id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
+      Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
+      CurrentStatus: jobInfo?.status
+    });
     setMaterialLines(allLines);
     setActiveLineKey(null);
     setAssignScanValue('');
@@ -717,11 +729,20 @@ const SingleSingleEntry = ({ state, actions }) => {
 
     const existing = state.jobEntries?.[activeJob.id]?.bags || [];
     const updatedBags = existing.filter((b) => b.lineKey !== activeLine.lineKey);
+    // Resolve jid: an "other bag" line has no quotation jid of its own, so
+    // fall back to the scanned job's jid (looked up from ScannedJobList) so
+    // Confirmation can still tie the row back to the right job.
+    const fallbackJid = (() => {
+      if (activeLine.jid) return activeLine.jid;
+      const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(activeJob.id));
+      return jobInfo?.jid ?? null;
+    })();
     actions.updateJobEntry(activeJob.id, {
       bags: [...updatedBags, {
         lineKey: activeLine.lineKey,
         qid: activeLine.qid,
-        jid: activeLine.jid,
+        jid: fallbackJid,
+        serialjobno: activeJob.id,
         isUnusedBag: activeLine.isUnusedBag,
         itemid: activeLine.itemid || activeLine.assignedBag?.itemid || null,
         shape: activeLine.shape || activeLine.assignedBag?.shape || '',
@@ -893,6 +914,16 @@ const SingleSingleEntry = ({ state, actions }) => {
             <div className="sse-job-bar__left">
               <span>Job:</span>
               <strong>{activeJob.id}</strong>
+
+              <span>Design#:</span>
+              <strong>{activeJob.Designno}</strong>
+
+              <span> Serial for:</span>
+              <strong>{activeJob.Serialfor}</strong>
+              <span>Customer:</span>
+              <strong>{activeJob.customerCode}</strong>
+              <span> Current Status:</span>
+              <strong>{activeJob.CurrentStatus}</strong>
             </div>
             <div className="sse-job-bar__right">
               <span className="sse-job-bar__progress-text">
@@ -1079,6 +1110,13 @@ const SingleSingleEntry = ({ state, actions }) => {
             </div>
 
             <div className="sse-entry-panel">
+
+              <img
+                src={activeJob.imagepath || defaultJobImg}
+                alt={`Design ${activeJob.id}`}
+                className="sse-entry-panel__job-img"
+                onError={(e) => { e.currentTarget.src = defaultJobImg; }}
+              />
 
               {(phase === 'assign-bag' || phase === 'enter-data') && !activeLine && !addingOtherBag && (
                 <div className="sse-scan-card sse-scan-card--compact">

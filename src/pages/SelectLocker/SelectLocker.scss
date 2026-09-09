@@ -195,6 +195,26 @@
       font-size: 18px;
       margin-bottom: 3px;
     }
+
+    
+    &__header {
+      padding-top: 30px;
+    }
+
+    &__grid {
+      margin-top: 50px;
+    }
+
+    &__card {
+      padding: 15px 0px;
+    }
+
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 36px;
+    }
   }
   .select-locker {
     padding: 0px !important;

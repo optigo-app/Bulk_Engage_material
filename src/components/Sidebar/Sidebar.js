@@ -29,16 +29,17 @@ const Sidebar = () => {
   const { currentStep, employee, locker, processSubType, materialType, scannedJobs, scannedBags } = state;
   const location = useLocation();
 
-  // Job Verification mode is stored in sessionStorage (set on Scan Employee).
-  // Sidebar is mounted once in Layout and persists across route changes, so we
-  // re-read the flag on every location change to stay in sync with the toggle.
+  // Job Verification mode is stored in sessionStorage. The Sidebar is mounted
+  // once in Layout and persists across route changes, so re-read the flag on
+  // every location change to stay in sync (e.g. the Job Verification page
+  // clears it when the user continues into the normal Engage Material flow).
   const [jobVerification, setJobVerification] = useState(() => {
     try { return sessionStorage.getItem('jobverification') === 'true'; } catch { return false; }
   });
 
   useEffect(() => {
     try { setJobVerification(sessionStorage.getItem('jobverification') === 'true'); } catch { /* ignore */ }
-  }, [location.pathname]);
+  }, [location.pathname, currentStep]);
 
   const [isOpen, setIsOpen] = useState(true);
 

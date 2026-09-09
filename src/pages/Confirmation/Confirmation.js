@@ -98,7 +98,7 @@ const Confirmation = () => {
     } else {
       // Bulk-material mode: read from 'bulk-material' only
       (entries['bulk-material']?.bags || []).forEach((bag) => {
-        const jobNo = bag.jobNos?.[0] ?? bag.SerialJobNo ?? '';
+        const jobNo = bag.jobNos?.[0] ?? bag.serialjobno ?? bag.SerialJobNo ?? '';
         const fallbackJid = jobJidMap[String(jobNo).trim().toUpperCase()];
         rows.push({
           jid: String(bag.jid ?? fallbackJid ?? ''),

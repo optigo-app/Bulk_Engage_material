@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  ScanLine, Save, CheckCircle2, AlertTriangle,
+  ScanLine, CheckCircle2, AlertTriangle,
   PackageOpen, Package, Gem, Palette, Wrench, X, RotateCcw, AlertCircle,
   Plus
 } from 'lucide-react';
@@ -8,8 +8,22 @@ import Button from '@mui/material/Button';
 import './SingleBulkEntry.scss';
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
 import { sumSavedBagCwt } from '../../../Utils/globalFunc';
+import defaultJobImg from '../../../images/default.jpg';
 
 // ─────────────────────────────────────────────────────────────
+const isCenterStone = (m) =>
+  Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
+
+const withCenterSuffix = (name, m) => {
+  if (!isCenterStone(m)) return name;
+  const u = String(name).toUpperCase();
+  if (u.endsWith(':S') || u.endsWith(':G')) return name; // already suffixed
+  const id = Number(m?.itemid);
+  if (id === 3) return `${name}:S`;
+  if (id === 4) return `${name}:G`;
+  return name;
+};
+
 const getSession = (key) => {
   if (isMasterKey(key)) return getMaster(key, []);
   try {
@@ -203,6 +217,15 @@ const SingleBulkEntry = ({ state, actions }) => {
 
   useEffect(() => { jobInputRef.current?.focus(); }, []);
 
+  // Auto-save: whenever materials change (PCS/CWT input, bag assignment, return),
+  // persist to context immediately — no manual "Save" button needed.
+  useEffect(() => {
+    if (!activeJob) return;
+    if (materials.length === 0) return;
+    autoSaveActiveJob();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materials]);
+
   // ─────────────────────────────────────────────────────────────
   // Global "Add Other Bag" modal handlers
   // ─────────────────────────────────────────────────────────────
@@ -304,7 +327,52 @@ const SingleBulkEntry = ({ state, actions }) => {
     const matchIdx = materials.findIndex((m) => !m.assignedBag && bagMatchesMaterialRow(bagRecord, m));
 
     if (matchIdx === -1) {
-      // No matching pending material line for this bag's spec
+      // No matching pending material line for this bag's spec. If the job has
+      // no material rows at all (no quotation data), create a brand-new row
+      // from the bag so the user can still engage other material.
+      if (materials.length === 0) {
+        const baseName = bagRecord.itemid === 3 ? 'DIAMOND'
+          : bagRecord.itemid === 4 ? 'COLORSTONE'
+          : bagRecord.itemid === 5 ? 'FINDING' : 'MISC';
+        const item = withCenterSuffix(baseName, bagRecord);
+        const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(activeJob?.id));
+        const newRow = {
+          qid: null,
+          jid: jobInfo?.jid ?? null,
+          SerialJobNo: activeJob?.id ?? '',
+          QuotationNo: '',
+          item, itemid: bagRecord.itemid,
+          MaterialTypeName: null,
+          IsCenterStone: bagRecord.IsCenterStone ?? 0,
+          stone_uniqueno: bagRecord.stone_uniqueno || '',
+          shape: bagRecord.shape || '',
+          quality: bagRecord.quality || '',
+          color: bagRecord.color_name || bagRecord.color || '',
+          size: bagRecord.size || '',
+          findingtypename: bagRecord.findingtypename || '',
+          findingAccessories: bagRecord.findingAccessories || '',
+          requiredPcs: 0, requiredWt: 0,
+          matchedBag: {
+            rfbag: bagRecord.rfbag,
+            availPcs: bagRecord.pcs ?? 0,
+            availWt: bagRecord.wt ?? 0,
+            iscompany: bagRecord.iscompany,
+          },
+          assignedBag: bagRecord.rfbag,
+          requiredBagNotScanned: false,
+          isUnusedBag: true,
+          isExtraEngaged: false,
+          pcs: '',
+          cwt: '',
+          pcsError: false,
+          cwtError: false,
+        };
+        setMaterials([newRow]);
+        setModalInfo(`Bag "${bagRecord.rfbag}" added as a new material line for this job.`);
+        setModalScanValue('');
+        modalInputRef.current?.focus();
+        return;
+      }
       setModalError(`No pending material matches bag "${bagRecord.rfbag}" — check item / shape / quality / color / size.`);
       setModalScanValue('');
       return;
@@ -383,6 +451,49 @@ const SingleBulkEntry = ({ state, actions }) => {
 
     const matchIdx = materials.findIndex((m) => !m.assignedBag && bagMatchesMaterialRow(bagRecord, m));
     if (matchIdx === -1) {
+      // No matching pending row — if the job has no material rows at all,
+      // create a brand-new row from the bag so the user can still engage.
+      if (materials.length === 0) {
+        const baseName = bagRecord.itemid === 3 ? 'DIAMOND'
+          : bagRecord.itemid === 4 ? 'COLORSTONE'
+          : bagRecord.itemid === 5 ? 'FINDING' : 'MISC';
+        const item = withCenterSuffix(baseName, bagRecord);
+        const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(activeJob?.id));
+        const newRow = {
+          qid: null,
+          jid: jobInfo?.jid ?? null,
+          SerialJobNo: activeJob?.id ?? '',
+          QuotationNo: '',
+          item, itemid: bagRecord.itemid,
+          MaterialTypeName: null,
+          IsCenterStone: bagRecord.IsCenterStone ?? 0,
+          stone_uniqueno: bagRecord.stone_uniqueno || '',
+          shape: bagRecord.shape || '',
+          quality: bagRecord.quality || '',
+          color: bagRecord.color_name || bagRecord.color || '',
+          size: bagRecord.size || '',
+          findingtypename: bagRecord.findingtypename || '',
+          findingAccessories: bagRecord.findingAccessories || '',
+          requiredPcs: 0, requiredWt: 0,
+          matchedBag: {
+            rfbag: bagRecord.rfbag,
+            availPcs: bagRecord.pcs ?? 0,
+            availWt: bagRecord.wt ?? 0,
+            iscompany: bagRecord.iscompany,
+          },
+          assignedBag: bagRecord.rfbag,
+          requiredBagNotScanned: false,
+          isUnusedBag: true,
+          isExtraEngaged: false,
+          pcs: '',
+          cwt: '',
+          pcsError: false,
+          cwtError: false,
+        };
+        setMaterials([newRow]);
+        setModalInfo(`Bag "${bagRecord.rfbag}" added as a new material line for this job.`);
+        return;
+      }
       setModalError(`No pending material matches bag "${bagRecord.rfbag}" — check item / shape / quality / color / size.`);
       return;
     }
@@ -418,10 +529,23 @@ const SingleBulkEntry = ({ state, actions }) => {
     const val = jobScanValue.trim();
     if (!val) return;
 
+    // Auto-save the currently active job before switching to a new one.
+    // This replaces the manual "Save Job & Add Next" button — any changes
+    // the user made are persisted to context automatically.
+    if (activeJob && norm(activeJob.id) !== norm(val)) {
+      autoSaveActiveJob();
+    }
+
     const existingSave = savedJobs.find((s) => norm(s.jobId) === norm(val));
     if (existingSave) {
       setJobError('');
-      setActiveJob({ id: val, locked: true });
+      const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
+      console.log('jobInfo 2: ', jobInfo);
+      setActiveJob({
+        id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
+        Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
+        CurrentStatus: jobInfo?.status
+      });
       setMaterials(existingSave.materials);
       setJobScanValue('');
       return;
@@ -434,14 +558,23 @@ const SingleBulkEntry = ({ state, actions }) => {
     }
 
     const hasLines = ScannedMaterials.some((m) => norm(m.SerialJobNo) === norm(val));
+    setJobError('');
+    const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
+    console.log('jobInfo 1: ', jobInfo);
+    setActiveJob({
+      id: val, locked: false, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
+      Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
+      CurrentStatus: jobInfo?.status
+    });
     if (!hasLines) {
-      setJobError(`Job "${val}" has no material data in the system.`);
+      // Job has no quotation material lines — start with an empty material
+      // list. The user can still add "Other Bag" rows via the modal, which now
+      // supports creating brand-new rows when no pending row matches.
+      setMaterials([]);
       setJobScanValue('');
+      setTimeout(() => jobInputRef.current?.focus(), 80);
       return;
     }
-
-    setJobError('');
-    setActiveJob({ id: val });
     const freshRows = buildMaterialRows(
       val, state.materialType,
       ScannedMaterials, ScannedBags,
@@ -543,7 +676,6 @@ const SingleBulkEntry = ({ state, actions }) => {
   };
 
   const handleFieldChange = (idx, field, value) => {
-    if (activeJob?.locked) return;
     setMaterials((prev) => prev.map((m, i) => {
       if (i !== idx) return m;
       if (m.engagedLocked) return m;
@@ -571,16 +703,28 @@ const SingleBulkEntry = ({ state, actions }) => {
   const handleUnlock = () => {
     if (!activeJob) return;
     setSavedJobs((prev) => prev.filter((s) => norm(s.jobId) !== norm(activeJob.id)));
-    setActiveJob({ id: activeJob.id });
+    setActiveJob({
+      id: activeJob.id, locked: false, imagepath: activeJob?.imagepath ?? null, Designno: activeJob?.design,
+      Serialfor: activeJob?.category, customerCode: activeJob?.ccode,
+      CurrentStatus: activeJob?.status
+    });
   };
 
-  const handleSaveJob = () => {
+  // Auto-save the active job's material entries to context. Called either
+  // when the user scans a new job (switching away from the current one) or
+  // automatically via useEffect when materials change. Does NOT clear
+  // activeJob — the caller decides that.
+  const autoSaveActiveJob = () => {
     if (!activeJob) return;
     if (materials.some((m) => m.pcsError || m.cwtError)) return;
-    if (materials.some((m) => m.assignedBag && !m.engagedLocked && !(parseFloat(m.cwt) > 0))) return;
+    const activeJobJid = (() => {
+      const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(activeJob.id));
+      return jobInfo?.jid ?? null;
+    })();
     const entries = materials.map((m) => ({
       qid: m.qid,
-      jid: m.jid,
+      jid: m.jid ?? activeJobJid,
+      serialjobno: activeJob.id,
       isUnusedBag: m.isUnusedBag,
       item: m.item,
       itemid: m.itemid,
@@ -602,7 +746,17 @@ const SingleBulkEntry = ({ state, actions }) => {
       wt: parseFloat(m.cwt) || 0,
     }));
     if (actions?.updateJobEntry) actions.updateJobEntry(activeJob.id, { bags: entries });
-    setSavedJobs((prev) => [...prev, { jobId: activeJob.id, materials: [...materials] }]);
+    setSavedJobs((prev) => {
+      const filtered = prev.filter((s) => norm(s.jobId) !== norm(activeJob.id));
+      return [...filtered, { jobId: activeJob.id, materials: [...materials] }];
+    });
+  };
+
+  const handleSaveJob = () => {
+    if (!activeJob) return;
+    if (materials.some((m) => m.pcsError || m.cwtError)) return;
+    if (materials.some((m) => m.assignedBag && !m.engagedLocked && !(parseFloat(m.cwt) > 0))) return;
+    autoSaveActiveJob();
     setSaveFlash(true);
     setTimeout(() => setSaveFlash(false), 700);
     setActiveJob(null);
@@ -676,10 +830,9 @@ const SingleBulkEntry = ({ state, actions }) => {
               onChange={(e) => { setJobScanValue(e.target.value); setJobError(''); }}
               onKeyDown={handleJobKeyDown}
               placeholder="Scan job barcode (must be from Scan Jobs page)..."
-              disabled={!!activeJob}
             />
             <Button variant="contained" size="small" onClick={handleJobScan}
-              disabled={!!activeJob || !jobScanValue.trim()} className="sbe-btn-primary">
+              disabled={!jobScanValue.trim()} className="sbe-btn-primary">
               Add Job
             </Button>
             {/* Material type indicator */}
@@ -705,9 +858,19 @@ const SingleBulkEntry = ({ state, actions }) => {
             <div className="sbe-card__head">
               <div className="sbe-card__title">
                 <span>Job: <strong>{activeJob.id}</strong></span>
+
+                <span>Design#:</span>
+                <strong>{activeJob.Designno}</strong>
+
+                <span> Serial for:</span>
+                <strong>{activeJob.Serialfor}</strong>
+                <span>Customer:</span>
+                <strong>{activeJob.customerCode}</strong>
+                <span> Current Status:</span>
+                <strong>{activeJob.CurrentStatus}</strong>
               </div>
               <div className="sbe-card__badges">
-                {!activeJob?.locked && pendingCount > 0 && (
+                {(pendingCount > 0 || materials.length === 0) && (
                   <Button
                     variant="outlined"
                     size="small"
@@ -741,6 +904,9 @@ const SingleBulkEntry = ({ state, actions }) => {
                 {materials.length === 0 ? (
                   <div className="sbe-table__empty">
                     No {matLabel} rows found for this job.
+                    <span className="sbe-table__empty-hint">
+                      Click <strong>Add Other Bag</strong> above to engage other material for this job.
+                    </span>
                   </div>
                 ) : (
                   sortedMaterials.map((mat, idx) => {
@@ -750,7 +916,10 @@ const SingleBulkEntry = ({ state, actions }) => {
                     // assigned bag behind the engagement — otherwise a row can
                     // show "Already Engaged" with a Return button even though
                     // no physical bag was ever scanned for it.
-                    const isEngagedLocked = !activeJob?.locked && mat.engagedLocked && has;
+                    // NOTE: must not depend on activeJob.locked — a re-scanned
+                    // saved job sets locked=true, but engaged rows still need
+                    // their Return button and returned rows still need inputs.
+                    const isEngagedLocked = mat.engagedLocked && has;
 
                     // Row is blocked because its required bag was never scanned
                     // in the Bag Scanning step, and no bag has been manually
@@ -820,22 +989,20 @@ const SingleBulkEntry = ({ state, actions }) => {
                         <span className="sbe-col sbe-col--req sbe-req">{mat.requiredWt}</span>
 
                         <span className="sbe-col sbe-col--issue" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                          {activeJob?.locked
-                            ? <span className="sbe-locked-val">{mat.pcs || '—'}</span>
-                            : noBagBlocked
-                              ? <span className="sbe-exhausted-cell">Bag not scanned</span>
-                              : isEngagedLocked
-                                ? <div className="sbe-engaged-lock">
-                                  <span className="sbe-engaged-val">{mat.pcs ?? '—'}</span>
-                                  <div style={{ display: 'flex', gap: 4 }}>
-                                    <button className="sbe-return-btn" onClick={(e) => { e.stopPropagation(); handleReturnMaterial(mat.__idx); }}
-                                      style={{ position: 'absolute', top: '20%', right: '-20px' }}
-                                    >
-                                      <RotateCcw size={9} /> Return
+                          {isEngagedLocked
+                            ? <div className="sbe-engaged-lock">
+                              <span className="sbe-engaged-val">{mat.pcs ?? '—'}</span>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button className="sbe-return-btn" onClick={(e) => { e.stopPropagation(); handleReturnMaterial(mat.__idx); }}
+                                  style={{ position: 'absolute', top: '20%', right: '-20px' }}
+                                >
+                                  <RotateCcw size={9} /> Return
                                     </button>
                                   </div>
                                 </div>
-                                : isExhausted
+                                : noBagBlocked
+                                  ? <span className="sbe-exhausted-cell">Bag not scanned</span>
+                                  : isExhausted
                                   ? <span className="sbe-exhausted-cell">Scan other bag</span>
                                   : <input type="number"
                                     className={`sbe-num ${!has ? 'sbe-num--off' : mat.pcsError ? 'sbe-num--error' : ''}`}
@@ -852,19 +1019,17 @@ const SingleBulkEntry = ({ state, actions }) => {
                           </p>
                         </span>
                         <span className="sbe-col sbe-col--issue" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column' }}>
-                          {activeJob?.locked
-                            ? <span className="sbe-locked-val">{mat.cwt || '—'}</span>
+                          {isEngagedLocked
+                            ? <span className="sbe-engaged-val">{mat.cwt ?? '—'}</span>
                             : noBagBlocked
                               ? <span className="sbe-exhausted-cell">Bag not scanned</span>
-                              : isEngagedLocked
-                                ? <span className="sbe-engaged-val">{mat.cwt ?? '—'}</span>
-                                : isExhausted
-                                  ? <span className="sbe-exhausted-cell">0 stock</span>
-                                  : <input type="number" step="0.001"
-                                    className={`sbe-num ${!has ? 'sbe-num--off' : mat.cwtError ? 'sbe-num--error' : ''}`}
-                                    value={mat.cwt}
-                                    onChange={(e) => handleFieldChange(mat.__idx, 'cwt', e.target.value)}
-                                    placeholder="CWT" disabled={!has} />
+                              : isExhausted
+                                ? <span className="sbe-exhausted-cell">0 stock</span>
+                                : <input type="number" step="0.001"
+                                  className={`sbe-num ${!has ? 'sbe-num--off' : mat.cwtError ? 'sbe-num--error' : ''}`}
+                                  value={mat.cwt}
+                                  onChange={(e) => handleFieldChange(mat.__idx, 'cwt', e.target.value)}
+                                  placeholder="CWT" disabled={!has} />
                           }
                           <p style={{ display: 'flex', padding: '0 7px', width: '100%' }}>
                             {has && mat.matchedBag && !isExhausted && !isEngagedLocked
@@ -886,30 +1051,8 @@ const SingleBulkEntry = ({ state, actions }) => {
               </div>
             </div>
 
-            {/* Save bar */}
-            <div className="sbe-save-bar">
-              <span className={pendingCount > 0 ? 'sbe-save-bar__warn' : 'sbe-save-bar__ok'}>
-              </span>
-              {activeJob?.locked ? (
-                <Button
-                  variant="outlined"
-                  onClick={handleUnlock}
-                  startIcon={<RotateCcw size={15} />}
-                  className="sbe-btn-return"
-                >
-                  Return / Edit
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  onClick={handleSaveJob}
-                  startIcon={<Save size={15} />}
-                  className={`sbe-btn-save ${saveFlash ? 'sbe-btn-save--flash' : ''}`}
-                >
-                  Save Job &amp; Add Next
-                </Button>
-              )}
-            </div>
+            {/* Auto-save: no manual save button. Changes are persisted
+                automatically via useEffect on materials change. */}
           </div>
         )}
       </div>
@@ -989,6 +1132,15 @@ const SingleBulkEntry = ({ state, actions }) => {
       {/* ── Saved jobs ── */}
       {savedJobs.length > 0 && (
         <div className="sbe-saved">
+          {activeJob && (
+            <div className="sbe-saved__current-img">
+              <img
+                src={activeJob.imagepath || defaultJobImg}
+                alt={`Design ${activeJob.id}`}
+                onError={(e) => { e.currentTarget.src = defaultJobImg; }}
+              />
+            </div>
+          )}
           <div className="sbe-saved__title"><CheckCircle2 size={14} />Job</div>
           {savedJobs.map((sj, i) => {
             const a = sj.materials.filter((m) => m.assignedBag).length;
@@ -1004,7 +1156,7 @@ const SingleBulkEntry = ({ state, actions }) => {
                   <strong>{sj.jobId}</strong>
                   <span className="sbe-saved__meta">
                     {sj.materials.length} rows · {a} bags
-                    {n > 0 && <span className="sbe-saved__no-bag-pill">{n} no bag</span>}
+                    {n > 0 && <span className="sbe-saved__no-bag-pill">{n} No Engage</span>}
                   </span>
                 </div>
 
@@ -1024,7 +1176,7 @@ const SingleBulkEntry = ({ state, actions }) => {
                       <span className="sbe-saved__spec">{m.shape} · {m.quality} · {m.color}{m.size ? ` · ${m.size}` : ''}</span>
                       {m.assignedBag
                         ? <span className="sbe-saved__bag">{m.assignedBag}</span>
-                        : <span className="sbe-saved__nobag">No bag</span>
+                        : <span className="sbe-saved__nobag">No Engage</span>
                       }
                       <span className="sbe-saved__vals">{m.pcs || '—'} pcs / {m.cwt || '—'} ctw</span>
                     </div>

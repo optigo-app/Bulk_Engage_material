@@ -23,7 +23,7 @@ const MATERIAL_LABELS = {
 const getMaterialColor = (material) => {
   const m = (material || '').toLowerCase();
   if (m.includes('diamond:s')) return '#6343f1';
-  if (m.includes('colorstone:z')) return '#00897b';
+  if (m.includes('colorstone:G')) return '#00897b';
   if (m.includes('diamond')) return '#e91e63';
   if (m.includes('colorstone')) return '#9c27b0';
   if (m.includes('finding') || m.includes('misc')) return '#ff9800';
@@ -39,8 +39,17 @@ const getMaterialDesc = (bag) => {
 // ─── Bag Entry Row ────────────────────────────────────────────
 const BagEntryRow = ({ bag, idx }) => {
   const color = getMaterialColor(bag.material);
-  const pcsOk = bag.reqPcs > 0 ? Number(bag.pcs) <= Number(bag.reqPcs) : true;
-  const wtOk = bag.reqWt > 0 ? Number(bag.wt) <= Number(bag.reqWt) : true;
+  // Entry modes use different field names: reqPcs/reqWt (SingleSingle) vs requiredPcs/requiredWt (others)
+  const reqPcs = Number(bag.reqPcs ?? bag.requiredPcs ?? 0);
+  const reqWt = Number(bag.reqWt ?? bag.requiredWt ?? 0);
+  const pcs = Number(bag.pcs) || 0;
+  const wt = Number(bag.wt) || 0;
+
+  // Hide rows where nothing was entered (0 pcs AND 0 wt)
+  if (pcs === 0 && wt === 0) return null;
+
+  const pcsOk = reqPcs > 0 ? pcs <= reqPcs : true;
+  const wtOk = reqWt > 0 ? wt <= reqWt : true;
   const bagLabel = bag.rfbag || bag.bagNo || bag.bagId || `Bag ${idx + 1}`;
 
   return (
@@ -59,10 +68,10 @@ const BagEntryRow = ({ bag, idx }) => {
         <div className="sum-bag-entry__stat-group sum-bag-entry__stat-group--req">
           <span className="sum-bag-entry__stat-label">Req</span>
           <span className="sum-bag-entry__stat-val">
-            {bag.reqPcs != null ? bag.reqPcs : '—'} pcs
+            {reqPcs} pcs
           </span>
           <span className="sum-bag-entry__stat-val">
-            {bag.reqWt != null ? Number(bag.reqWt).toFixed(3) : '—'} ctw
+            {reqWt.toFixed(3)} ctw
           </span>
         </div>
 
@@ -73,10 +82,10 @@ const BagEntryRow = ({ bag, idx }) => {
         <div className="sum-bag-entry__stat-group sum-bag-entry__stat-group--entered">
           <span className="sum-bag-entry__stat-label sum-bag-entry__stat-label--entered">Entered</span>
           <span className={`sum-bag-entry__stat-val sum-bag-entry__stat-val--entered ${!pcsOk ? 'sum-bag-entry__stat-val--over' : ''}`}>
-            {bag.pcs != null ? bag.pcs : '—'} pcs
+            {pcs} pcs
           </span>
           <span className={`sum-bag-entry__stat-val sum-bag-entry__stat-val--entered ${!wtOk ? 'sum-bag-entry__stat-val--over' : ''}`}>
-            {bag.wt != null ? Number(bag.wt).toFixed(3) : '—'} ctw
+            {wt.toFixed(3)} ctw
           </span>
         </div>
       </div>
@@ -87,11 +96,22 @@ const BagEntryRow = ({ bag, idx }) => {
 // ─── Job Card (collapsible) ───────────────────────────────────
 const JobCard = ({ job, entries, index }) => {
   const [open, setOpen] = React.useState(true);
-  const jobPcs = entries.reduce((s, b) => s + (Number(b.pcs) || 0), 0);
-  const jobWt = entries.reduce((s, b) => s + (Number(b.wt) || 0), 0);
-  const reqPcs = entries.reduce((s, b) => s + (Number(b.reqPcs) || 0), 0);
-  const reqWt = entries.reduce((s, b) => s + (Number(b.reqWt) || 0), 0);
-  const hasEntries = entries.length > 0;
+  // Normalize req fields and filter out zero-entered rows
+  const visibleEntries = entries
+    .map((b) => ({
+      ...b,
+      reqPcs: Number(b.reqPcs ?? b.requiredPcs ?? 0),
+      reqWt: Number(b.reqWt ?? b.requiredWt ?? 0),
+      pcs: Number(b.pcs) || 0,
+      wt: Number(b.wt) || 0,
+    }))
+    .filter((b) => !(b.pcs === 0 && b.wt === 0));
+
+  const jobPcs = visibleEntries.reduce((s, b) => s + b.pcs, 0);
+  const jobWt = visibleEntries.reduce((s, b) => s + b.wt, 0);
+  const reqPcs = visibleEntries.reduce((s, b) => s + b.reqPcs, 0);
+  const reqWt = visibleEntries.reduce((s, b) => s + b.reqWt, 0);
+  const hasEntries = visibleEntries.length > 0;
 
   return (
     <div className={`sum-job-card ${open ? 'sum-job-card--open' : ''}`}>
@@ -104,7 +124,7 @@ const JobCard = ({ job, entries, index }) => {
             {job.design && <span className="sum-job-card__meta">{job.design}</span>}
           </div>
           <span className={`sum-job-card__badge ${!hasEntries ? 'sum-job-card__badge--empty' : ''}`}>
-            {hasEntries ? `${entries.length} bag${entries.length !== 1 ? 's' : ''}` : 'No entries'}
+            {hasEntries ? `${visibleEntries.length} bag${visibleEntries.length !== 1 ? 's' : ''}` : 'No entries'}
           </span>
         </div>
 
@@ -134,12 +154,12 @@ const JobCard = ({ job, entries, index }) => {
             <div className="sum-job-card__empty">No bag entries recorded for this job.</div>
           ) : (
             <>
-              {entries.map((bag, idx) => (
+              {visibleEntries.map((bag, idx) => (
                 <BagEntryRow key={bag.rfbag || idx} bag={bag} idx={idx} />
               ))}
 
               {/* Totals footer */}
-              {entries.length > 1 && (
+              {visibleEntries.length > 1 && (
                 <div className="sum-job-card__footer">
                   <span className="sum-job-card__footer-label">Job Total</span>
                   <div className="sum-job-card__footer-vals">
@@ -164,11 +184,17 @@ const Summary = () => {
   const { state, actions } = useEngage();
   const jobverification = sessionStorage.getItem('jobverification');
   useEffect(() => { actions.setStep(jobverification === 'true' ? 4 : 7); }, []); // eslint-disable-line
-  const allBags = Object.values(state.jobEntries || {}).flatMap(job => job.bags || []);
+  const allBags = Object.values(state.jobEntries || {}).flatMap(job => job.bags || [])
+    .map((b) => ({
+      ...b,
+      pcs: Number(b.pcs) || 0,
+      wt: Number(b.wt) || 0,
+    }))
+    .filter((b) => !(b.pcs === 0 && b.wt === 0));
   const totalJobs = state.scannedJobs?.length || 0;
   const totalBags = allBags.length;
-  const totalPcs = allBags.reduce((s, b) => s + (Number(b.pcs) || 0), 0);
-  const totalWt = allBags.reduce((s, b) => s + (Number(b.wt) || 0), 0);
+  const totalPcs = allBags.reduce((s, b) => s + b.pcs, 0);
+  const totalWt = allBags.reduce((s, b) => s + b.wt, 0);
 
   const processLabel = PROCESS_LABELS[state.processSubType] || state.processSubType || '—';
   const materialLabel = MATERIAL_LABELS[state.materialType] || state.materialType || '—';
@@ -176,15 +202,22 @@ const Summary = () => {
   const getJobEntries = (job) => {
     const perJob = state.jobEntries?.[job.id]?.bags;
     if (perJob?.length) return perJob;
-    return (state.jobEntries?.['bulk-material']?.bags || [])
-      .filter(b => String(b.jid) === String(job.jid ?? '') || (b.rowKey && job.id));
+    // BulkMaterialWise stores all rows under 'bulk-material'. Match each row
+    // back to its job by serialjobno (saved on the entry), or by the rowKey
+    // prefix which is `${norm(serialjobno)}||${groupKey}`.
+    const norm = (s) => String(s ?? '').trim().toUpperCase();
+    const bulkBags = state.jobEntries?.['bulk-material']?.bags || [];
+    return bulkBags.filter((b) => {
+      if (norm(b.serialjobno ?? '') === norm(job.id)) return true;
+      const rk = norm(b.rowKey ?? '');
+      return rk.startsWith(norm(job.id) + '||');
+    });
   };
 
   return (
     <div className="summary page-enter">
       {/* ── Header ── */}
       <div className="summary__header">
-        <div className="summary__step-badge">Step 7</div>
         <h1 className="summary__title">Summary</h1>
         <p className="summary__desc">Review all details before final processing</p>
       </div>
@@ -231,10 +264,6 @@ const Summary = () => {
             <span>{totalJobs} Job{totalJobs !== 1 ? 's' : ''}</span>
           </div>
           <div className="summary__stat-pill">
-            <Package size={13} />
-            <span>{totalBags} Bag{totalBags !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="summary__stat-pill">
             <Hash size={13} />
             <span>{totalPcs} PCS</span>
           </div>
@@ -247,24 +276,6 @@ const Summary = () => {
 
       {/* ── Scrollable Body ── */}
       <div className="summary__body">
-
-        {/* Scanned Bags chips */}
-        {state.scannedBags?.length > 0 && (
-          <div className="summary__section">
-            <div className="summary__section-header">
-              <span className="summary__section-title">Scanned Bags</span>
-              <span className="summary__section-count">{state.scannedBags.length}</span>
-            </div>
-            <div className="summary__scanned-chips">
-              {state.scannedBags.map(bag => (
-                <span key={bag.id} className="summary__scanned-chip">
-                  {bag.rfbag || bag.id}
-                  {bag.type && <em>{bag.type}</em>}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Job Entries */}
         <div className="summary__section">

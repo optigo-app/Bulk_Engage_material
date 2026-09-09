@@ -32,13 +32,13 @@ const getSessionData = (key) => {
 // ── Center-stone (Solitaire / Zemstone) detection ──
 // IsCenterStone === 1 marks the line/bag as a center stone:
 //   itemid 3 (Diamond)    -> Solitaire  -> name suffix ":S"
-//   itemid 4 (Colorstone) -> Zemstone   -> name suffix ":Z"
+//   itemid 4 (Colorstone) -> Zemstone   -> name suffix ":G"
 const isCenterStone = (m) =>
   Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
 
 const getItemLabel = (itemid, cs = false) => {
   const suffix = cs
-    ? (Number(itemid) === 3 ? ":S" : Number(itemid) === 4 ? ":Z" : "")
+    ? (Number(itemid) === 3 ? ":S" : Number(itemid) === 4 ? ":G" : "")
     : "";
   switch (Number(itemid)) {
     case 3:
@@ -95,7 +95,7 @@ const matchBagsForItem = (jobMaterial, allBags) => {
   return allBags.filter((bag) => {
     const bagSize = norm(bag.Size || bag.customesize || "");
     // NOTE: IsCenterStone is a property of the MATERIAL line only (it marks the
-    // design's center stone and drives the ":S" / ":Z" name suffix). Bags carry
+    // design's center stone and drives the ":S" / ":G" name suffix). Bags carry
     // no such flag, so a center-stone line is still filled from a normal bag —
     // never gate bag matching on it.
     // Only when BOTH sides name a specific stone must the stone match.
@@ -300,8 +300,8 @@ const BagScanning = () => {
               // Diamond/Solitaire — includes center-stone Diamond:S
               return bag.type === "Diamond" || bag.type === "Diamond:S";
             case "colorstone":
-              // ColorStone/Gemstone — includes center-stone Colorstone:Z
-              return bag.type === "Colorstone" || bag.type === "Colorstone:Z";
+              // ColorStone/Gemstone — includes center-stone Colorstone:G
+              return bag.type === "Colorstone" || bag.type === "Colorstone:G";
             case "misc":
               return bag.type === "Misc";
             case "findings":
@@ -584,7 +584,7 @@ const BagScanning = () => {
   const isScanned = (bagId) => state.scannedBags.some((b) => b.id === bagId);
 
   const filteredBags = useMemo(() => {
-    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:Z": 4, Misc: 5, Finding: 6 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:G": 4, Misc: 5, Finding: 6 };
 
     return [...state.requiredBags]
       .filter((bag) => {
@@ -601,7 +601,7 @@ const BagScanning = () => {
   // attributes (e.g. two finding lines, same gold/18K/yellow spec, but
   // different findingtype) still render as two separate cards.
   const groupedAvailable = useMemo(() => {
-    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:Z": 4, Misc: 5, Finding: 6 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:G": 4, Misc: 5, Finding: 6 };
     const map = new Map();
 
     filteredBags.forEach((bag) => {
@@ -655,12 +655,11 @@ const BagScanning = () => {
   // job — 10 for job 1/8477 (2 diamond + 2 colorstone + 2 misc + 4
   // finding), instead of dropping the unmatched ones silently.
   const combinedMaterials = useMemo(() => {
-    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:Z": 4, Misc: 5, Finding: 6 };
+    const order = { Diamond: 1, "Diamond:S": 2, Colorstone: 3, "Colorstone:G": 4, Misc: 5, Finding: 6 };
     return [...groupedAvailable, ...unavailableBags].sort(
       (a, b) => (order[a.type] || 999) - (order[b.type] || 999),
     );
   }, [groupedAvailable, unavailableBags]);
-
   const scannedCount = state.scannedBags.length;
   const extraCount = state.otherBags.length;
   // Progress compares SCANNED BAGS against the total number of physical bags
@@ -694,15 +693,15 @@ const BagScanning = () => {
         ].join(" ")}
       >
         <div className="bag-scanning__bag-info">
+          <span className="bag-scanning__bag-jobnumber">
+            {Array.from(group.jobs).join(", ")}
+          </span>
           <span className="bag-scanning__bag-type">
             {group.type} · {group.shape} · {group.quality} · {group.color_name} · {group.size}
-          </span>
-          <span className="bag-scanning__bag-meta">
             {group.findingAccessories ? ` ${group.findingAccessories}` : ""} {group.findingtypename ? ` · ${group.findingtypename}` : ""}
           </span>
           <span className="bag-scanning__bag-meta">
-            Job{group.jobs.size > 1 ? "s" : ""}:{" "}
-            {Array.from(group.jobs).join(", ")} · Req: {group.materialPcs} pcs /{" "}
+            Req: {group.materialPcs} pcs /{" "}
             {group.materialWt} {group.type == "Misc" || group.type == "Finding" ? "gms" : 'ctw'}
           </span>
 
@@ -813,13 +812,14 @@ const BagScanning = () => {
         className="bag-scanning__bag-card bag-scanning__bag-card--unavailable"
       >
         <div className="bag-scanning__bag-info">
+          <span className="bag-scanning__bag-jobnumber">
+              {mat?.SerialJobNo}
+          </span>
           <span className="bag-scanning__bag-id">
             No bag found
           </span>
           <span className="bag-scanning__bag-type">
             {mat.type} · {mat.shape} · {mat.quality} · {mat.color_name} · {mat.size}
-          </span>
-          <span className="bag-scanning__bag-meta">
             {mat.findingtypename ? ` · ${mat.findingtypename}` : ""}
           </span>
           <span className="bag-scanning__bag-meta">

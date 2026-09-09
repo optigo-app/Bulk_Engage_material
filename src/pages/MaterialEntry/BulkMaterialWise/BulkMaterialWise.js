@@ -15,17 +15,17 @@ import { getMaster, isMasterKey } from '../../../Utils/masterStore';
 // ─── Utilities ────────────────────────────────────────────────────────────────
 const norm = (s) => String(s ?? '').trim().toUpperCase();
 // ── Center-stone (Solitaire / Zemstone) detection ──
-// IsCenterStone === 1: itemid 3 -> ":S" (Solitaire), itemid 4 -> ":Z" (Zemstone)
+// IsCenterStone === 1: itemid 3 -> ":S" (Solitaire), itemid 4 -> ":G" (Zemstone)
 const isCenterStone = (m) =>
   Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
 
 const withCenterSuffix = (name, m) => {
   if (!isCenterStone(m)) return name;
   const u = String(name).toUpperCase();
-  if (u.endsWith(':S') || u.endsWith(':Z')) return name; // already suffixed
+  if (u.endsWith(':S') || u.endsWith(':G')) return name; // already suffixed
   const id = Number(m?.itemid);
   if (id === 3) return `${name}:S`;
-  if (id === 4) return `${name}:Z`;
+  if (id === 4) return `${name}:G`;
   return name;
 };
 const getSession = (key) => { if (isMasterKey(key)) return getMaster(key, []); try { const r = sessionStorage.getItem(key); return r ? JSON.parse(r) : []; } catch { return []; } };
@@ -82,7 +82,7 @@ const findBagById = (id, pool) =>
 const matColor = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return '#6343f1';
-  if (u.includes('COLORSTONE:Z')) return '#00897b';
+  if (u.includes('COLORSTONE:G')) return '#00897b';
   if (u.includes('DIAMOND')) return '#e91e63';
   if (u.includes('COLORSTONE')) return '#9c27b0';
   if (u.includes('FINDING') || u.includes('MISC')) return '#ff9800';
@@ -91,7 +91,7 @@ const matColor = (item = '') => {
 
 const matIcon = (item = '', size = 13) => {
   const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:Z')) return <Stone size={size} />;
+  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:G')) return <Stone size={size} />;
   if (u.includes('DIAMOND')) return <Gem size={size} />;
   if (u.includes('COLORSTONE')) return <Palette size={size} />;
   if (u.includes('FINDING') || u.includes('MISC')) return <Wrench size={size} />;
@@ -101,7 +101,7 @@ const matIcon = (item = '', size = 13) => {
 const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
-  if (u.includes('COLORSTONE:Z')) return 'Colorstone:Z';
+  if (u.includes('COLORSTONE:G')) return 'Colorstone:G';
   if (u.includes('DIAMOND')) return 'Diamond';
   if (u.includes('COLORSTONE')) return 'Colorstone';
   if (u.includes('FINDING')) return 'Finding';
@@ -117,7 +117,7 @@ const materialTypeFilter = (m, materialType) => {
   if (!materialType || materialType === 'all') return true;
   // Diamond/Solitaire — includes center-stone Diamond:S
   if (materialType === 'diamond') return m.itemid === 3;
-  // ColorStone/Gemstone — includes center-stone Colorstone:Z
+  // ColorStone/Gemstone — includes center-stone Colorstone:G
   if (materialType === 'colorstone') return m.itemid === 4;
   if (materialType === 'misc') return m.itemid === 7;
   if (materialType === 'findings') return m.itemid === 5;
@@ -169,7 +169,7 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
       } : null;
       map.set(key, {
         rowKey: key,
-        // Center stones carry the ":S" / ":Z" suffix on the material name.
+        // Center stones carry the ":S" / ":G" suffix on the material name.
         item: withCenterSuffix(line.item || '', line),
         itemid: line.itemid,
         IsCenterStone: line.IsCenterStone ?? 0,
@@ -517,6 +517,8 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
       const resolvedRfbag = bag?.rfbag ?? r.engagedRfbag ?? null;
       return {
         rowKey: r.rowKey,
+        serialjobno: r.jobNos?.[0] ?? null,
+        jobNos: r.jobNos ?? [],
         qid: r.qids?.[0] ?? null,
         jid: r.jids?.[0] ?? null,
         isUnusedBag: !(r.qids?.length),
@@ -531,6 +533,8 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
         size: r.size,
         findingtypename: r.findingtypename || '',
         findingAccessories: r.findingAccessories || '',
+        reqPcs: r.reqPcs,
+        reqWt: r.reqWt,
         requiredPcs: r.reqPcs,
         requiredWt: r.reqWt,
         rfbag: resolvedRfbag,
@@ -551,7 +555,9 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
       const bag = r.matchedBag || r.manualBag;
       const resolvedRfbag = bag?.rfbag ?? r.engagedRfbag ?? null;
       return {
-        rowKey: r.rowKey, qid: r.qids?.[0] ?? null, jid: r.jids?.[0] ?? null,
+        rowKey: r.rowKey, serialjobno: r.jobNos?.[0] ?? null,
+        jobNos: r.jobNos ?? [],
+        qid: r.qids?.[0] ?? null, jid: r.jids?.[0] ?? null,
         isUnusedBag: !(r.qids?.length),
         item: r.item, itemid: r.itemid,
         IsCenterStone: r.IsCenterStone ?? 0,
@@ -560,6 +566,8 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
         shape: r.shape, quality: r.quality, color: r.color, size: r.size,
         findingtypename: r.findingtypename || '',
         findingAccessories: r.findingAccessories || '',
+        reqPcs: r.reqPcs, reqWt: r.reqWt,
+        requiredPcs: r.reqPcs, requiredWt: r.reqWt,
         bag: (bag || resolvedRfbag) ? { rfbag: resolvedRfbag ?? '' } : null,
         iscompany: bag?.iscompany ?? null,
         pcs: parseFloat(updatedInputs[r.rowKey]?.pcs) || 0,
@@ -669,7 +677,10 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
       return;
     }
 
-    // New row
+    // New row — a manually added "other" material has no quotation line of its
+    // own, but it still has to be engaged against the scanned job(s). Carry the
+    // scanned jobs' serial nos / jids so Summary can group it and Confirmation
+    // can resolve a valid jid. qids stays empty → saved as isUnusedBag (qid -1).
     const newRow = {
       rowKey: key,
       item,
@@ -684,8 +695,9 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
       reqWt: 0,
       matchedBag: null,
       manualBag: bag,
-      jobNos: [],
-      qids: [], jids: [],
+      jobNos: jobs.map((j) => j.serialjobno ?? j.id).filter(Boolean),
+      qids: [],
+      jids: jobs.map((j) => j.jid).filter((v) => v !== null && v !== undefined),
       txnid: null,
     };
     setRows((prev) => [...prev, newRow]);
@@ -831,7 +843,6 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
                         >
                           {/* Sr */}
                           <td className="bmw__td bmw__td--sr" style={{ verticalAlign: 'top' }}>{sr}</td>
-
                           {/* Material + bag (two-line chip: rfbag + owner badge, same as BulkSingleEntry) */}
                           <td className="bmw__td bmw__td--type" style={{ verticalAlign: 'top' }}>
                             {row.engagedRfbag ? (
@@ -852,7 +863,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
                                   </span>
                                 </span>
                               ) : (
-                                <span className="bmw__chip bmw__chip--none">No bag</span>
+                                <span className="bmw__chip bmw__chip--none">No Engage</span>
                               )}
                           </td>
 
@@ -924,7 +935,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
                                   : <div className="bmw__entry-cell">
                                     <input type="number"
                                       className={`bmw__inp ${!bag ? 'bmw__inp--disabled' : pcsErr ? 'bmw__inp--error' : ''}`}
-                                      placeholder={bag ? String(row.reqPcs) : 'No bag'}
+                                      placeholder={bag ? String(row.reqPcs) : 'No Engage'}
                                       disabled={!bag}
                                       value={inp.pcs}
                                       onChange={(e) => handleInput(row.rowKey, 'pcs', e.target.value)} />
@@ -940,7 +951,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
                                   : <div className="bmw__entry-cell">
                                     <input type="number" step="0.001"
                                       className={`bmw__inp ${!bag ? 'bmw__inp--disabled' : cwtErr ? 'bmw__inp--error' : ''}`}
-                                      placeholder={bag ? row.reqWt.toFixed(3) : 'No bag'}
+                                      placeholder={bag ? row.reqWt.toFixed(3) : 'No Engage'}
                                       disabled={!bag}
                                       value={inp.cwt}
                                       onChange={(e) => handleInput(row.rowKey, 'cwt', e.target.value)} />
