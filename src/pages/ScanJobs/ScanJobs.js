@@ -230,6 +230,7 @@ const ScanJobs = () => {
 
   const finalizeAndNavigate = (jobs) => {
     sessionStorage.setItem('scannedJobListData', JSON.stringify(jobs));
+    actions.setScannedJobs(jobs);
     const allMaterialData = getJobMaterialData();
     const scannedSerialNos = new Set(jobs.map((j) => j.serialjobno?.toLowerCase()));
     const matchedMaterials = allMaterialData.filter((m) =>

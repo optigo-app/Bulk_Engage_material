@@ -6,7 +6,7 @@ import { CheckCircle2, AlertTriangle, RotateCcw, ArrowLeft } from 'lucide-react'
 import { refreshSessionData } from '../../Utils/refreshSessionData';
 import { removeMaster } from '../../Utils/masterStore';
 import { processSubTypeLabel } from '../../Utils/processLabels';
-import { MATERIAL_TYPE_LABELS } from '../SelectProcess/SelectProcess';
+import { materialTypeLabel } from '../../Utils/materialTypes';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -311,7 +311,7 @@ const Confirmation = () => {
         <div className="confirmation__summary-item">
           <span className="confirmation__summary-label">Material</span>
           <span className="confirmation__summary-value">
-            {MATERIAL_TYPE_LABELS[state.materialType] || (state.materialType?.charAt(0).toUpperCase() + state.materialType?.slice(1))}
+            {materialTypeLabel(state.materialType)}
           </span>
         </div>
         <div className="confirmation__summary-item">

@@ -25,6 +25,83 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   flex: 1;
   min-height: 0;
 
+  // ── Job info strip ────────────────────────────────────────────────────────
+  &__jobs-info {
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--primary) 4%, var(--bg-card));
+    flex-shrink: 0;
+  }
+
+  &__jobs-info-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px 0;
+  }
+
+  &__jobs-info-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-muted);
+  }
+
+  &__jobs-info-count {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: $mono;
+    color: var(--primary-light, var(--primary));
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: 20px;
+    padding: 0 8px;
+  }
+
+  &__jobs-info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 14px 9px;
+    max-height: 96px;
+    overflow: auto;
+  }
+
+  &__jobs-info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  &__jobs-info-job {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: $mono;
+    color: var(--primary-light, var(--primary));
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+    border-radius: 5px;
+    padding: 1px 7px;
+    flex-shrink: 0;
+  }
+
+  &__jobs-info-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--text-muted);
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+  }
+
   // ── Toolbar ───────────────────────────────────────────────────────────────
   &__toolbar {
     display: flex;
@@ -414,7 +491,7 @@ $mono: "JetBrains Mono", "Courier New", monospace;
     font-size: 15px;
     font-family: $mono;
     color: black;
-    background: var(--bg-input, var(--bg-card));
+    background: white;
     outline: none;
     text-align: right;
     font-weight: 600;

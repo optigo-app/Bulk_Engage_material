@@ -56,8 +56,13 @@ $mono: "JetBrains Mono", "Courier New", monospace;
     &.MuiFormControlLabel-root {
       margin: 0;
       flex-shrink: 0;
-      .MuiFormControlLabel-label { font-size: 12px; color: var(--text-secondary); }
-      .MuiCheckbox-root { padding: 4px; }
+      .MuiFormControlLabel-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .MuiCheckbox-root {
+        padding: 4px;
+      }
     }
   }
 
@@ -366,18 +371,18 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   font-family: $mono;
   white-space: nowrap;
 
-    &--autocomp {
-      background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-      color: var(--success, #2e7d32);
-      border: 1px solid
-        color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
-    }
+  &--autocomp {
+    background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    color: var(--success, #2e7d32);
+    border: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+  }
 
-    &--autoccust {
-      background: color-mix(in srgb, #64aaec 12%, transparent);
-      color: #15a1e2;
-      border: 1px solid #3d91f1;
-    }
+  &--autoccust {
+    background: color-mix(in srgb, #64aaec 12%, transparent);
+    color: #15a1e2;
+    border: 1px solid #3d91f1;
+  }
   &--manual {
     background: color-mix(in srgb, var(--primary) 12%, transparent);
     color: var(--primary-light, var(--primary));
@@ -442,7 +447,7 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   font-size: 15px;
   font-family: $mono;
   color: black;
-  background: var(--bg-input, var(--bg-card));
+  background: white;
   outline: none;
   font-weight: 600;
   transition:
@@ -456,7 +461,7 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   }
 
   &::placeholder {
-    color: black;
+    color: rgb(236, 236, 236);
   }
 
   // remove spinners
@@ -860,6 +865,80 @@ $mono: "JetBrains Mono", "Courier New", monospace;
   &__meta {
     font-size: 11px;
     color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__no-bag-pill {
+    background: color-mix(in srgb, var(--warning, #f57c00) 10%, transparent);
+    color: var(--warning, #e65100);
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 1px 7px;
+    border-radius: 4px;
+  }
+
+  &__stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__stat {
+    flex: 1 1 0;
+    min-width: 84px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 7px 10px;
+    background: var(--bg-surface, #f8fafc);
+    border: 1px solid var(--border-color, #e5e9f2);
+    border-radius: 9px;
+
+    span {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      color: var(--text-muted, #94a3b8);
+    }
+
+    b {
+      font-size: 15px;
+      line-height: 1.1;
+      color: var(--primary, #1d4ed8);
+    }
+
+    i {
+      font-style: normal;
+      font-size: 10.5px;
+      color: var(--text-muted, #94a3b8);
+    }
+  }
+
+  &__grand {
+    padding: 10px 14px 14px;
+    border-top: 1px solid
+      color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+    background: color-mix(in srgb, var(--success, #22c55e) 6%, var(--bg-card));
+    position: sticky;
+    bottom: 0;
+
+    .bse-sidebar__stat {
+      background: var(--bg-card, #fff);
+      b {
+        color: var(--success, #16a34a);
+      }
+    }
+  }
+
+  &__grand-head {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--success, #15803d);
+    margin-bottom: 7px;
   }
 
   &__chips {

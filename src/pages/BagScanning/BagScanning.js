@@ -18,6 +18,7 @@ import {
 import Button from "@mui/material/Button";
 import "./BagScanning.scss";
 import { getMaster, isMasterKey } from "../../Utils/masterStore";
+import { materialTypeMatchesBagType } from "../../Utils/materialTypes";
 
 const getSessionData = (key) => {
   if (isMasterKey(key)) return getMaster(key, []);
@@ -153,7 +154,7 @@ const buildRequiredBags = () => {
 
     if (matchedBags.length === 0) {
       unavailable.push({
-        id: `na-${material.qid}`,
+        id: `na-${material.qid}-${material.SerialJobNo || material.jid || 'x'}`,
         itemid: material.itemid,
         IsCenterStone: material.IsCenterStone ?? 0,
         stone_uniqueno: material.stone_uniqueno || "",
@@ -180,42 +181,41 @@ const buildRequiredBags = () => {
     }
 
     matchedBags.forEach((bag) => {
-      const alreadyAdded = available.find((r) => r.id === bag.rfbag);
-      if (!alreadyAdded) {
-        // The center-stone flag belongs to the MATERIAL line (allJobMaterialData),
-        // so use the material's flag — the bag record may not carry it.
-        available.push({
-          id: bag.rfbag,
-          rfbag: bag.rfbag,
-          itemid: bag.itemid,
-          IsCenterStone: material.IsCenterStone ?? bag.IsCenterStone ?? 0,
-          stone_uniqueno: bag.stone_uniqueno || material.stone_uniqueno || "",
-          type: getItemLabel(bag.itemid, matIsCS),
-          color: getItemColor(bag.itemid, matIsCS),
-          shape: bag.shape,
-          quality: bag.Quality,
-          size: bag.Size || bag.customesize || "",
-          color_name: bag.color,
-          findingtypename: bag.findingtypename || "",
-          findingAccessories: bag.findingAccessories || "",
-          remwt: bag.remwt,
-          rempcs: bag.rempcs,
-          LockerName: bag.LockerName,
-          iscompany: bag.iscompany,
-          istoreCust_CustName: bag.istoreCust_CustName,
-          istoreCust_Customercode: bag.istoreCust_Customercode,
-          qid: material.qid,
-          jid: material.jid,
-          SerialJobNo: material.SerialJobNo,
-          QuotationNo: material.QuotationNo,
-          materialWt: material.wt,
-          materialPcs: material.pcs,
-          materialShape: material.shape,
-          materialQuality: material.Quality,
-          materialColor: material.color,
-          materialSize: material.size || material.customsize || "",
-        });
-      }
+      // One record per material-bag pair so every job's material line gets
+      // its own card, even if two jobs share the same qid and bag.
+      // The id is per job so scanning it only marks that job's card.
+      const jobSpecificId = `${bag.rfbag}__${material.qid ?? 'x'}__${material.SerialJobNo ?? 'none'}`;
+      available.push({
+        id: jobSpecificId,
+        rfbag: bag.rfbag,
+        itemid: bag.itemid,
+        IsCenterStone: material.IsCenterStone ?? bag.IsCenterStone ?? 0,
+        stone_uniqueno: bag.stone_uniqueno || material.stone_uniqueno || "",
+        type: getItemLabel(bag.itemid, matIsCS),
+        color: getItemColor(bag.itemid, matIsCS),
+        shape: bag.shape,
+        quality: bag.Quality,
+        size: bag.Size || bag.customesize || "",
+        color_name: bag.color,
+        findingtypename: bag.findingtypename || "",
+        findingAccessories: bag.findingAccessories || "",
+        remwt: bag.remwt,
+        rempcs: bag.rempcs,
+        LockerName: bag.LockerName,
+        iscompany: bag.iscompany,
+        istoreCust_CustName: bag.istoreCust_CustName,
+        istoreCust_Customercode: bag.istoreCust_Customercode,
+        qid: material.qid,
+        jid: material.jid,
+        SerialJobNo: material.SerialJobNo,
+        QuotationNo: material.QuotationNo,
+        materialWt: material.wt,
+        materialPcs: material.pcs,
+        materialShape: material.shape,
+        materialQuality: material.Quality,
+        materialColor: material.color,
+        materialSize: material.size || material.customsize || "",
+      });
     });
   });
   return { available, unavailable };
@@ -270,50 +270,38 @@ const BagScanning = () => {
   useEffect(() => {
     actions.setStep(5);
 
-    if (state.scannedJobs.length === 0) {
-      navigate("/scan-jobs");
-      return;
-    }
-
     const alljobdata = JSON.parse(
       sessionStorage.getItem("scannedJobListData") || "[]",
     );
-    alljobdataRef.current = alljobdata; // add this line
+
+    // If the context state only has one job but session has both (or state
+    // was lost), restore the full scanned job list before building bags.
+    if (alljobdata.length === 0) {
+      navigate("/scan-jobs");
+      return;
+    }
+    if (alljobdata.length !== state.scannedJobs.length) {
+      actions.setScannedJobs(alljobdata);
+    }
+
+    alljobdataRef.current = alljobdata;
     const required = buildRequiredBags();
     const filterByLockerAndType = (list) =>
-      list
-        .filter((bag) => {
-          const lockerMatch =
-            (bag.LockerName || "").replace(/\s/g, "") ===
-            (state.locker.name || "").replace(/\s/g, "");
-          return bag.LockerName ? lockerMatch : true;
-        })
-        .filter((bag) => {
-          if (bag.iscompany === 1 || bag.iscompany === undefined) return true;
-          return alljobdata.some(
-            (job) => job.ccode == bag.istoreCust_Customercode,
-          );
-        })
-        .filter((bag) => {
-          switch (state.materialType?.toLowerCase()) {
-            case "diamond":
-              // Diamond/Solitaire — includes center-stone Diamond:S
-              return bag.type === "Diamond" || bag.type === "Diamond:S";
-            case "colorstone":
-              // ColorStone/Gemstone — includes center-stone Colorstone:G
-              return bag.type === "Colorstone" || bag.type === "Colorstone:G";
-            case "misc":
-              return bag.type === "Misc";
-            case "findings":
-              return bag.type === "Finding";
-            case "all":
-            default:
-              return true;
-          }
-        });
+      list?.filter((bag) => {
+        const lockerMatch =
+          (bag?.LockerName || "").replace(/\s/g, "") ===
+          (state?.locker?.name || "").replace(/\s/g, "");
+        return bag?.LockerName ? lockerMatch : true;
+      })?.filter((bag) => {
+        if (bag?.iscompany === 1 || bag?.iscompany === undefined) return true;
+        return alljobdata.some(
+          (job) => job.ccode == bag.istoreCust_Customercode,
+        );
+      })
+        .filter((bag) => materialTypeMatchesBagType(bag.type, state.materialType));
 
-    const filteredAvailable = filterByLockerAndType(required.available);
-    const filteredUnavailable = filterByLockerAndType(required.unavailable);
+    const filteredAvailable = filterByLockerAndType(required?.available);
+    const filteredUnavailable = filterByLockerAndType(required?.unavailable);
 
     actions.setRequiredBags(filteredAvailable);
     setUnavailableBags(filteredUnavailable);
@@ -576,8 +564,28 @@ const BagScanning = () => {
       materialColor: bag.materialColor,
       materialSize: bag.materialSize,
     }));
+    const scannedOtherBagData = state.otherBags.map((bag) => ({
+      rfbag: bag.rfbag || bag.id,
+      itemid: bag.itemid,
+      IsCenterStone: bag.IsCenterStone ?? 0,
+      stone_uniqueno: bag.stone_uniqueno || "",
+      type: bag.type,
+      shape: bag.shape,
+      quality: bag.quality,
+      size: bag.size,
+      color_name: bag.color_name,
+      LockerName: bag.LockerName,
+      iscompany: bag.iscompany,
+      istoreCust_CustName: bag.istoreCust_CustName,
+      istoreCust_Customercode: bag.istoreCust_Customercode,
+      findingtypename: bag.findingtypename,
+      findingAccessories: bag.findingAccessories,
+      rempcs: bag.rempcs,
+      remwt: bag.remwt,
+    }));
 
     sessionStorage.setItem("scannedBagData", JSON.stringify(scannedBagData));
+    sessionStorage.setItem("scannedOtherBagData", JSON.stringify(scannedOtherBagData));
     navigate("/material-entry");
   };
 
@@ -605,7 +613,8 @@ const BagScanning = () => {
     const map = new Map();
 
     filteredBags.forEach((bag) => {
-      const key = bag.qid;
+      // Group per job so two jobs with the same qid stay separate cards.
+      const key = `${bag.qid || bag.jid || 'x'}__${bag.SerialJobNo || 'none'}`;
 
       if (!map.has(key)) {
         map.set(key, {
@@ -695,11 +704,13 @@ const BagScanning = () => {
         <div className="bag-scanning__bag-info">
           <span className="bag-scanning__bag-jobnumber">
             {Array.from(group.jobs).join(", ")}
+            {"  "}
+            <span className="bag-scanning__bag-type">
+              {group.type} · {group.shape} · {group.quality} · {group.color_name} · {group.size}
+              {group.findingAccessories ? ` ${group.findingAccessories}` : ""} {group.findingtypename ? ` · ${group.findingtypename}` : ""}
+            </span>
           </span>
-          <span className="bag-scanning__bag-type">
-            {group.type} · {group.shape} · {group.quality} · {group.color_name} · {group.size}
-            {group.findingAccessories ? ` ${group.findingAccessories}` : ""} {group.findingtypename ? ` · ${group.findingtypename}` : ""}
-          </span>
+
           <span className="bag-scanning__bag-meta">
             Req: {group.materialPcs} pcs /{" "}
             {group.materialWt} {group.type == "Misc" || group.type == "Finding" ? "gms" : 'ctw'}
@@ -728,10 +739,10 @@ const BagScanning = () => {
                     title={[bag.LockerName, bag.istoreCust_CustName]
                       .filter(Boolean)
                       .join(" · ")}
-                    onClick={() => { if (!scanned) handleScan(bag.rfbag); }}
+                    onClick={() => { if (!scanned) handleScan(bag.id); }}
                     onKeyDown={(e) => {
                       if ((e.key === "Enter" || e.key === " ") && !scanned)
-                        handleScan(bag.rfbag);
+                        handleScan(bag.id);
                     }}
                   >
                     {scanned && <CheckCircle2 size={11} />} {bag.rfbag}
@@ -813,7 +824,7 @@ const BagScanning = () => {
       >
         <div className="bag-scanning__bag-info">
           <span className="bag-scanning__bag-jobnumber">
-              {mat?.SerialJobNo}
+            {mat?.SerialJobNo}
           </span>
           <span className="bag-scanning__bag-id">
             No bag found
@@ -856,11 +867,16 @@ const BagScanning = () => {
         <div className="bag-scanning__left">
           {state.scannedJobs.length > 0 && (
             <div className="bag-scanning__jobs-context">
-              <span className="bag-scanning__jobs-context-label">
-                Jobs:
-              </span>
+              <div className="bag-scanning__jobs-context-head">
+                <span className="bag-scanning__jobs-context-label">
+                  Scanned Jobs
+                </span>
+                <span className="bag-scanning__jobs-count">
+                  <strong>{state.scannedJobs.length}</strong>
+                </span>
+              </div>
               <div className="bag-scanning__jobs-chips">
-                {state.scannedJobs.map((j) => (
+                {state.scannedJobs.map((j, i) => (
                   <span key={j.id} className="bag-scanning__job-chip">
                     {j.id}
                   </span>

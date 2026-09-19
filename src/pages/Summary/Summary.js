@@ -8,17 +8,10 @@ import {
 } from 'lucide-react';
 import Button from '@mui/material/Button';
 import { PROCESS_SUBTYPE_LABELS } from '../../Utils/processLabels';
+import { materialTypeLabel } from '../../Utils/materialTypes';
 import './Summary.scss';
 
 const PROCESS_LABELS = PROCESS_SUBTYPE_LABELS;
-
-const MATERIAL_LABELS = {
-  all: 'All',
-  diamond: 'Diamond/Solitaire',
-  colorstone: 'ColorStone/Gemstone',
-  misc: 'Misc',
-  findings: 'Findings',
-};
 
 const getMaterialColor = (material) => {
   const m = (material || '').toLowerCase();
@@ -57,6 +50,7 @@ const BagEntryRow = ({ bag, idx }) => {
       {/* Left: bag id + material */}
       <div className="sum-bag-entry__left">
         <span className="sum-bag-entry__bagno">{bagLabel}</span>
+        <span className="sum-bag-entry__bagno">{bag.item}</span>
         <span className="sum-bag-entry__material" style={{ color }}>
           {getMaterialDesc(bag)}
         </span>
@@ -104,6 +98,7 @@ const JobCard = ({ job, entries, index }) => {
       reqWt: Number(b.reqWt ?? b.requiredWt ?? 0),
       pcs: Number(b.pcs) || 0,
       wt: Number(b.wt) || 0,
+      item: b.item || b.Item || b.itemName || b.ItemName || '',
     }))
     .filter((b) => !(b.pcs === 0 && b.wt === 0));
 
@@ -158,6 +153,7 @@ const JobCard = ({ job, entries, index }) => {
                 <BagEntryRow key={bag.rfbag || idx} bag={bag} idx={idx} />
               ))}
 
+
               {/* Totals footer */}
               {visibleEntries.length > 1 && (
                 <div className="sum-job-card__footer">
@@ -197,14 +193,11 @@ const Summary = () => {
   const totalWt = allBags.reduce((s, b) => s + b.wt, 0);
 
   const processLabel = PROCESS_LABELS[state.processSubType] || state.processSubType || '—';
-  const materialLabel = MATERIAL_LABELS[state.materialType] || state.materialType || '—';
+  const materialLabel = state.materialType ? materialTypeLabel(state.materialType) : '—';
 
   const getJobEntries = (job) => {
     const perJob = state.jobEntries?.[job.id]?.bags;
     if (perJob?.length) return perJob;
-    // BulkMaterialWise stores all rows under 'bulk-material'. Match each row
-    // back to its job by serialjobno (saved on the entry), or by the rowKey
-    // prefix which is `${norm(serialjobno)}||${groupKey}`.
     const norm = (s) => String(s ?? '').trim().toUpperCase();
     const bulkBags = state.jobEntries?.['bulk-material']?.bags || [];
     return bulkBags.filter((b) => {

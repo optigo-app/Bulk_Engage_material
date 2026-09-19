@@ -1,3 +1,5 @@
+import { getMaster } from './masterStore';
+
 const normBag = (s) => String(s ?? '').trim().toUpperCase();
 
 /**
@@ -23,6 +25,41 @@ export const sumSavedBagCwt = (jobEntries, rfbag, excludeJobId = null) => {
     });
   });
   return total;
+};
+
+/**
+ * Resolve the display info for a job number. The scanned-job list (session)
+ * already carries most fields, but Metal / Metal-Color only exist on the
+ * `allJobListData` master (joblist SP: MetalType as metal, MetalColor as
+ * color), so fall back to that master when a field is missing.
+ *
+ * @param {string} serialJobNo  the job barcode / serialjobno
+ * @param {Array}  scannedJobList  session scannedJobListData (optional)
+ */
+export const getJobInfo = (serialJobNo, scannedJobList = []) => {
+  const target = normBag(serialJobNo);
+  if (!target) return {};
+  const scanned = (scannedJobList || []).find(
+    (j) => normBag(j.serialjobno ?? j.id) === target
+  );
+  const master = (getMaster('allJobListData', []) || []).find(
+    (j) => normBag(j.serialjobno) === target
+  );
+
+  const pick = (key) => scanned?.[key] ?? master?.[key] ?? null;
+  return {
+    serialjobno: pick('serialjobno') ?? serialJobNo,
+    jid: pick('jid'),
+    design: pick('design'),
+    category: pick('category'),
+    ccode: pick('ccode'),
+    cname: pick('cname'),
+    metal: pick('metal'),
+    color: pick('color'),
+    status: pick('status'),
+    location: pick('location'),
+    imagepath: scanned?.imagepath ?? master?.imagepath ?? null,
+  };
 };
 
 export const getClientIpAddress = async () => {

@@ -10,6 +10,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import ScannerInput from '../../components/ScannerInput/ScannerInput';
 import { getMaster, removeMaster } from '../../Utils/masterStore';
 import { CallApi } from '../../API/CallApi/CallApi';
 import { refreshSessionData } from '../../Utils/refreshSessionData';
@@ -573,34 +574,19 @@ const JobVerification = () => {
     <div className="job-verify page-enter">
       {/* Top bar */}
       <div className="job-verify__topbar">
-        <div className="job-verify__scanbox">
-          <div className="job-verify__scanbox-icon"><ScanLine size={22} /></div>
-          <div className="job-verify__scanbox-input">
-            <input
-              ref={inputRef}
-              type="text"
-              className="job-verify__input"
-              placeholder="Scan job barcode / serial job no..."
-              value={scanValue}
-              onChange={(e) => { setScanValue(e.target.value); setError(''); }}
-              onKeyDown={handleKeyDown}
-            />
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleScan}
-              disabled={!scanValue.trim()}
-              className="job-verify__scan-btn"
-            >
-              Submit
-            </Button>
-          </div>
-        </div>
-
-
+        <ScannerInput
+          ref={inputRef}
+          value={scanValue}
+          onChange={(e) => { setScanValue(e.target.value); setError(''); }}
+          onKeyDown={handleKeyDown}
+          onSubmit={handleScan}
+          placeholder="Scan job barcode / serial job no..."
+          label="Scan Job"
+          buttonLabel="Submit"
+          autoFocus
+        />
 
         <div className="job-verify__topbar-right">
-
           <div className={`job-verify__job-verifynew ${!job ? 'job-verify__job-verifynew--disabled' : ''}`}>
             <FormControlLabel
               className="job-verify__job-verify-toggle"

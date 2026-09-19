@@ -5,11 +5,14 @@ import {
   Plus
 } from 'lucide-react';
 import Button from '@mui/material/Button';
-import './SingleBulkEntry.scss';
-import { getMaster, isMasterKey } from '../../../Utils/masterStore';
-import { sumSavedBagCwt } from '../../../Utils/globalFunc';
-import defaultJobImg from '../../../images/default.jpg';
+import { useGlobalScanner } from '../../../hooks/useGlobalScanner';
 
+import { getMaster, isMasterKey } from '../../../Utils/masterStore';
+import { sumSavedBagCwt, getJobInfo } from '../../../Utils/globalFunc';
+import { materialTypeItemIds, toMaterialTypeList, materialTypeLabel } from '../../../Utils/materialTypes';
+import defaultJobImg from '../../../images/default.jpg';
+import ScannerInput from '../../../components/ScannerInput/ScannerInput';
+import './SingleBulkEntry.scss'
 // ─────────────────────────────────────────────────────────────
 const isCenterStone = (m) =>
   Number(m?.IsCenterStone ?? m?.iscenterstone ?? m?.is_sol_gem ?? 0) === 1;
@@ -71,23 +74,13 @@ const getEngagedTotals = (AllEngagedMaterial, serialJobNo, row) => {
   return { pcs, wt, txnid };
 };
 
-// Material type → itemid filter
-const MATERIAL_ITEMID_MAP = {
-  all: null,
-  diamond: [3],
-  colorstone: [4],
-  misc: [7],
-  findings: [5],
-};
-
 // Build material rows from scannedJobMaterialData
 const buildMaterialRows = (
   serialJobNo, materialType = 'all',
   ScannedMaterials, ScannedBags,
   requiredBags = [], scannedBagsCtx = []
 ) => {
-  const allowedItemIds = MATERIAL_ITEMID_MAP[materialType] ?? null;
-  const scannedRfbagSet = new Set(scannedBagsCtx.map((b) => norm(b.rfbag)));
+  const allowedItemIds = materialTypeItemIds(materialType);
   return ScannedMaterials
     .filter((m) => norm(m.SerialJobNo) === norm(serialJobNo))
     .filter((m) => !allowedItemIds || allowedItemIds.includes(m.itemid))
@@ -95,12 +88,21 @@ const buildMaterialRows = (
       const lineRequiredBags = requiredBags.filter(
         (rb) => rb.qid === m.qid && rb.jid === m.jid
       );
-      const anyScanned = lineRequiredBags.some((rb) => scannedRfbagSet.has(norm(rb.rfbag)));
+      const anyScanned = lineRequiredBags.some((rb) =>
+        ScannedBags.some((b) =>
+          norm(b.rfbag) === norm(rb.rfbag) &&
+          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
+        )
+      );
       const hasRequired = lineRequiredBags.length > 0;
 
       const autoMatch =
-        ScannedBags.find((b) => b.qid === m.qid && b.jid === m.jid) ||
         ScannedBags.find((b) =>
+          b.qid === m.qid && b.jid === m.jid &&
+          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
+        ) ||
+        ScannedBags.find((b) =>
+          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo)) &&
           b.itemid === m.itemid &&
           norm(b.shape || '') === norm(m.shape || '') &&
           norm(b.quality || '') === norm(m.Quality || '') &&
@@ -139,6 +141,33 @@ const buildMaterialRows = (
         txnid: null,
       };
     });
+};
+
+// ── Totals for one saved job's material rows (used by the summary panel) ──
+const jobTotals = (rows = []) => {
+  const engaged = rows.filter((m) => m.assignedBag).length;
+  return {
+    rows: rows.length,
+    engaged,
+    noEngage: rows.length - engaged,
+    reqPcs: rows.reduce((a, m) => a + (m.requiredPcs || 0), 0),
+    reqWt: rows.reduce((a, m) => a + (m.requiredWt || 0), 0),
+    entryPcs: rows.reduce((a, m) => a + (parseFloat(m.pcs) || 0), 0),
+    entryWt: rows.reduce((a, m) => a + (parseFloat(m.cwt) || 0), 0),
+  };
+};
+
+// ── Does an engaged record (allEngagedMaterial) match a material row's spec? ──
+const engagedMatchesRowSpec = (e, row) => {
+  if (e.itemid !== row.itemid) return false;
+  if (row.itemid === 5) {
+    return norm(e.findingtypename || '') === norm(row.findingtypename || '') &&
+      norm(e.findingAccessories || '') === norm(row.findingAccessories || '');
+  }
+  return norm(e.shape || '') === norm(row.shape || '') &&
+    norm(e.Quality || '') === norm(row.quality || '') &&
+    norm(e.color || '') === norm(row.color || '') &&
+    norm(e.Size || '') === norm(row.size || '');
 };
 
 // ── Does a raw bag record's spec match a material row's spec? ──
@@ -333,7 +362,7 @@ const SingleBulkEntry = ({ state, actions }) => {
       if (materials.length === 0) {
         const baseName = bagRecord.itemid === 3 ? 'DIAMOND'
           : bagRecord.itemid === 4 ? 'COLORSTONE'
-          : bagRecord.itemid === 5 ? 'FINDING' : 'MISC';
+            : bagRecord.itemid === 5 ? 'FINDING' : 'MISC';
         const item = withCenterSuffix(baseName, bagRecord);
         const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(activeJob?.id));
         const newRow = {
@@ -456,7 +485,7 @@ const SingleBulkEntry = ({ state, actions }) => {
       if (materials.length === 0) {
         const baseName = bagRecord.itemid === 3 ? 'DIAMOND'
           : bagRecord.itemid === 4 ? 'COLORSTONE'
-          : bagRecord.itemid === 5 ? 'FINDING' : 'MISC';
+            : bagRecord.itemid === 5 ? 'FINDING' : 'MISC';
         const item = withCenterSuffix(baseName, bagRecord);
         const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(activeJob?.id));
         const newRow = {
@@ -525,9 +554,10 @@ const SingleBulkEntry = ({ state, actions }) => {
   // ─────────────────────────────────────────────────────────────
   // Job scan
   // ─────────────────────────────────────────────────────────────
-  const handleJobScan = () => {
-    const val = jobScanValue.trim();
+  const handleJobScan = (rawVal) => {
+    const val = (rawVal ?? jobScanValue).trim();
     if (!val) return;
+    setJobScanValue(val);
 
     // Auto-save the currently active job before switching to a new one.
     // This replaces the manual "Save Job & Add Next" button — any changes
@@ -539,12 +569,12 @@ const SingleBulkEntry = ({ state, actions }) => {
     const existingSave = savedJobs.find((s) => norm(s.jobId) === norm(val));
     if (existingSave) {
       setJobError('');
-      const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
-      console.log('jobInfo 2: ', jobInfo);
+      const jobInfo = getJobInfo(val, ScannedJobList);
       setActiveJob({
         id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
         Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
-        CurrentStatus: jobInfo?.status
+        CurrentStatus: jobInfo?.status,
+        metal: jobInfo?.metal, metalColor: jobInfo?.color
       });
       setMaterials(existingSave.materials);
       setJobScanValue('');
@@ -559,12 +589,12 @@ const SingleBulkEntry = ({ state, actions }) => {
 
     const hasLines = ScannedMaterials.some((m) => norm(m.SerialJobNo) === norm(val));
     setJobError('');
-    const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
-    console.log('jobInfo 1: ', jobInfo);
+    const jobInfo = getJobInfo(val, ScannedJobList);
     setActiveJob({
       id: val, locked: false, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
       Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
-      CurrentStatus: jobInfo?.status
+      CurrentStatus: jobInfo?.status,
+      metal: jobInfo?.metal, metalColor: jobInfo?.color
     });
     if (!hasLines) {
       // Job has no quotation material lines — start with an empty material
@@ -602,7 +632,7 @@ const SingleBulkEntry = ({ state, actions }) => {
     });
 
     // Extra engaged rows: allEngagedMaterial grouped by rfbag+material, excluding bags already on regular rows
-    const allowedItemIds = MATERIAL_ITEMID_MAP[state.materialType] ?? null;
+    const allowedItemIds = materialTypeItemIds(state.materialType);
     const egMap = {};
     (AllEngagedMaterial || []).forEach(e => {
       if (!e.isengage) return;
@@ -616,47 +646,129 @@ const SingleBulkEntry = ({ state, actions }) => {
         egMap[key].txnids.add(e.txnid);
       }
     });
-    const extraMats = Object.values(egMap)
-      .filter(e => !regularRows.some(line => {
-        if (!line.matchedBag || norm(line.matchedBag.rfbag) !== norm(e.rfbag)) return false;
-        if (e.itemid !== line.itemid) return false;
-        if (line.itemid === 5) {
-          return norm(e.findingtypename || '') === norm(line.findingtypename || '') &&
-            norm(e.findingAccessories || '') === norm(line.findingAccessories || '');
-        }
-        return norm(e.shape || '') === norm(line.shape || '') &&
-          norm(e.Quality || '') === norm(line.quality || '') &&
-          norm(e.color || '') === norm(line.color || '') &&
-          norm(e.Size || '') === norm(line.size || '');
-      }))
-      .map((e) => {
-        const rawBag = AllBagListData.find(b => norm(b.rfbag) === norm(e.rfbag)) ||
-          ScannedBags.find(b => norm(b.rfbag) === norm(e.rfbag));
-        const availPcs = rawBag ? (rawBag.rempcs ?? rawBag.pcs ?? Number(rawBag.scannedPcs ?? 0)) : 0;
-        const availWt = rawBag ? (rawBag.remwt ?? rawBag.wt ?? Number(rawBag.scannedCwt ?? 0)) : 0;
-        const iscompany = rawBag ? rawBag.iscompany : undefined;
-        const itemName = e.itemid === 3 ? 'DIAMOND' : e.itemid === 4 ? 'COLORSTONE' : e.itemid === 5 ? 'FINDING' : 'MISC';
-        const txnidList = [...e.txnids];
-        // An "extra engaged" row always has a real rfbag from allEngagedMaterial,
-        // so it always has a bag — engagedLocked is safe here.
-        return {
-          qid: e.qid ?? null, jid: e.jid ?? null,
-          SerialJobNo: val, QuotationNo: e.QuotationNo || '',
-          item: itemName, itemid: e.itemid, MaterialTypeName: null,
-          shape: e.shape || '', quality: e.Quality || '', color: e.color || '', size: e.Size || '',
-          findingtypename: e.findingtypename || '', findingAccessories: e.findingAccessories || '',
-          requiredPcs: e.totalPcs, requiredWt: e.totalWt,
-          isUnusedBag: false, isExtraEngaged: true,
-          requiredBagNotScanned: false, requiredBagRfbag: null,
+    // Merge engaged records into the job's material rows. An engaged record is
+    // NOT shown as its own row when the job already has a required material
+    // line with the same spec — the engaged bag/qty is applied onto that line
+    // so the user sees ONE row per material instead of an engaged row plus a
+    // "Bag not scanned" row. Only engaged material with no matching required
+    // line at all becomes an extra row.
+    const rows = [...regularRows];
+    const extraMats = [];
+
+    Object.values(egMap).forEach((e) => {
+      const rawBag = AllBagListData.find(b => norm(b.rfbag) === norm(e.rfbag)) ||
+        ScannedBags.find(b => norm(b.rfbag) === norm(e.rfbag));
+      const availPcs = rawBag ? (rawBag.rempcs ?? rawBag.pcs ?? Number(rawBag.scannedPcs ?? 0)) : 0;
+      const availWt = rawBag ? (rawBag.remwt ?? rawBag.wt ?? Number(rawBag.scannedCwt ?? 0)) : 0;
+      const iscompany = rawBag ? rawBag.iscompany : undefined;
+      const txnidList = [...e.txnids];
+      const txnid = txnidList.length ? txnidList.join(',') : null;
+
+      // Already reflected on a row that holds this very bag → nothing to do.
+      const alreadyOnBag = rows.some((line) =>
+        line.matchedBag && norm(line.matchedBag.rfbag) === norm(e.rfbag) &&
+        engagedMatchesRowSpec(e, line)
+      );
+      if (alreadyOnBag) return;
+
+      // Attach to an existing required line of the same spec that has no bag yet.
+      const targetIdx = rows.findIndex((line) =>
+        !line.matchedBag && !line.assignedBag && engagedMatchesRowSpec(e, line)
+      );
+      if (targetIdx !== -1) {
+        const line = rows[targetIdx];
+        rows[targetIdx] = {
+          ...line,
           matchedBag: { rfbag: e.rfbag, availPcs, availWt, iscompany },
           assignedBag: e.rfbag,
-          pcs: String(e.totalPcs), cwt: e.totalWt.toFixed(3),
+          // the required bag question is settled once engaged material is attached
+          requiredBagNotScanned: false,
+          requiredBagRfbag: null,
+          pcs: String(e.totalPcs),
+          cwt: e.totalWt.toFixed(3),
           engagedLocked: true,
-          txnid: txnidList.length ? txnidList.join(',') : null,
+          txnid: txnid ?? line.txnid ?? null,
+        };
+        return;
+      }
+
+      // No required line for this engaged material → keep it as an extra row.
+      const itemName = e.itemid === 3 ? 'DIAMOND' : e.itemid === 4 ? 'COLORSTONE' : e.itemid === 5 ? 'FINDING' : 'MISC';
+      extraMats.push({
+        qid: e.qid ?? null, jid: e.jid ?? null,
+        SerialJobNo: val, QuotationNo: e.QuotationNo || '',
+        item: itemName, itemid: e.itemid, MaterialTypeName: null,
+        shape: e.shape || '', quality: e.Quality || '', color: e.color || '', size: e.Size || '',
+        findingtypename: e.findingtypename || '', findingAccessories: e.findingAccessories || '',
+        requiredPcs: e.totalPcs, requiredWt: e.totalWt,
+        isUnusedBag: false, isExtraEngaged: true,
+        requiredBagNotScanned: false, requiredBagRfbag: null,
+        matchedBag: { rfbag: e.rfbag, availPcs, availWt, iscompany },
+        assignedBag: e.rfbag,
+        pcs: String(e.totalPcs), cwt: e.totalWt.toFixed(3),
+        engagedLocked: true,
+        txnid,
+      });
+    });
+
+    const jobInfo2 = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
+    const jobCcode = norm(jobInfo2?.ccode || '');
+
+    const alreadyAssignedRfbags = new Set(
+      [...rows, ...extraMats]
+        .map((l) => l.assignedBag)
+        .filter(Boolean)
+        .map(norm)
+    );
+
+    const otherBagRows = (state.otherBags || [])
+      .filter((bag) => {
+        if (!bag.rfbag) return false;
+        if (alreadyAssignedRfbags.has(norm(bag.rfbag))) return false; // already on a row
+        // company bags allowed for all jobs; customer bags only for matching ccode
+        if (bag.iscompany === 1 || bag.iscompany === undefined) return true;
+        return jobCcode !== '' && norm(bag.istoreCust_Customercode || '') === jobCcode;
+      })
+      .map((bag) => {
+        const baseName = bag.itemid === 3 ? 'DIAMOND'
+          : bag.itemid === 4 ? 'COLORSTONE'
+            : bag.itemid === 5 ? 'FINDING' : 'MISC';
+        return {
+          qid: null,
+          jid: jobInfo2?.jid ?? null,
+          SerialJobNo: val,
+          QuotationNo: '',
+          item: baseName,
+          MaterialTypeName: `${baseName} · Other Bag`,
+          itemid: bag.itemid,
+          shape: bag.shape || '',
+          quality: bag.quality || '',
+          color: bag.color_name || '',
+          size: bag.size || '',
+          findingtypename: bag.findingtypename || '',
+          findingAccessories: bag.findingAccessories || '',
+          requiredPcs: 0,
+          requiredWt: 0,
+          isUnusedBag: true,
+          isOtherBagAuto: true,
+          isExtraEngaged: false,
+          requiredBagNotScanned: false,
+          requiredBagRfbag: null,
+          matchedBag: {
+            rfbag: bag.rfbag,
+            availPcs: bag.rempcs ?? 0,
+            availWt: bag.remwt ?? 0,
+            iscompany: bag.iscompany,
+          },
+          assignedBag: bag.rfbag,
+          pcs: '',
+          cwt: '',
+          txnid: null,
+          engagedLocked: false,
         };
       });
 
-    setMaterials([...regularRows, ...extraMats]);
+    setMaterials([...rows, ...extraMats, ...otherBagRows]);
     setJobScanValue('');
   };
 
@@ -703,11 +815,7 @@ const SingleBulkEntry = ({ state, actions }) => {
   const handleUnlock = () => {
     if (!activeJob) return;
     setSavedJobs((prev) => prev.filter((s) => norm(s.jobId) !== norm(activeJob.id)));
-    setActiveJob({
-      id: activeJob.id, locked: false, imagepath: activeJob?.imagepath ?? null, Designno: activeJob?.design,
-      Serialfor: activeJob?.category, customerCode: activeJob?.ccode,
-      CurrentStatus: activeJob?.status
-    });
+    setActiveJob({ ...activeJob, locked: false });
   };
 
   // Auto-save the active job's material entries to context. Called either
@@ -767,34 +875,49 @@ const SingleBulkEntry = ({ state, actions }) => {
   const assignedCount = materials.filter((m) => m.assignedBag).length;
   const pendingCount = materials.length - assignedCount;
 
+  // Grand totals across every saved job for the right-side summary panel
+  const grandTotals = useMemo(() => {
+    return savedJobs.reduce((acc, sj) => {
+      const t = jobTotals(sj.materials);
+      return {
+        rows: acc.rows + t.rows,
+        engaged: acc.engaged + t.engaged,
+        noEngage: acc.noEngage + t.noEngage,
+        reqPcs: acc.reqPcs + t.reqPcs,
+        reqWt: acc.reqWt + t.reqWt,
+        entryPcs: acc.entryPcs + t.entryPcs,
+        entryWt: acc.entryWt + t.entryWt,
+      };
+    }, { rows: 0, engaged: 0, noEngage: 0, reqPcs: 0, reqWt: 0, entryPcs: 0, entryWt: 0 });
+  }, [savedJobs]);
+
   // ── Material type label for display ──────────────────────────
-  const matLabel = {
-    all: 'All Materials',
-    diamond: 'Diamond/Solitaire only',
-    colorstone: 'ColorStone/Gemstone only',
-    misc: 'Misc only',
-    findings: 'Findings only',
-  }[state.materialType] || 'All Materials';
+  const matLabel = toMaterialTypeList(state.materialType).length &&
+    !toMaterialTypeList(state.materialType).includes('all')
+    ? `${materialTypeLabel(state.materialType)} only`
+    : 'All Materials';
 
   // ── Sort: group by item type, engaged rows first within each group ──
   const itemOrder = { 3: 1, 4: 2, 5: 3, 7: 4 }; // Diamond, Colorstone, Finding, Misc
 
   const sortedMaterials = useMemo(() => {
     return materials
-      .map((m, idx) => ({ ...m, __idx: idx })) // keep original index for stable fallback
+      .map((m, idx) => ({ ...m, __idx: idx }))
       .sort((a, b) => {
-        // 1. Group by item type
+        // Other Bag rows always last
+        const aOther = a.isOtherBagAuto ? 1 : 0;
+        const bOther = b.isOtherBagAuto ? 1 : 0;
+        if (aOther !== bOther) return aOther - bOther;
+
+        // Group by item type
         const typeCompare = (itemOrder[a.itemid] || 999) - (itemOrder[b.itemid] || 999);
         if (typeCompare !== 0) return typeCompare;
 
-        // 2. Engaged rows first within the same type. Use engagedBypass too so a
-        // row that was returned (engagedLocked flipped to false) keeps its slot
-        // instead of jumping position when the Return button is clicked.
+        // Engaged rows first
         const aEngaged = (a.engagedLocked || a.engagedBypass) ? 0 : 1;
         const bEngaged = (b.engagedLocked || b.engagedBypass) ? 0 : 1;
         if (aEngaged !== bEngaged) return aEngaged - bEngaged;
 
-        // 3. Keep original relative order otherwise
         return a.__idx - b.__idx;
       });
   }, [materials]);
@@ -814,32 +937,25 @@ const SingleBulkEntry = ({ state, actions }) => {
     return avail - savedUsed - otherUsed;
   };
 
+  useGlobalScanner(jobInputRef, handleJobScan);
+
   // ─────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: 0 }}>
       <div className="sbe-wrap">
         {/* ── Job scan bar ── */}
-        <div className="sbe-topbar">
-          <div className="sbe-topbar__row">
-            <ScanLine size={16} className="sbe-topbar__icon" />
-            <input
-              ref={jobInputRef}
-              type="text"
-              className={`sbe-input ${jobError ? 'sbe-input--error' : ''}`}
-              value={jobScanValue}
-              onChange={(e) => { setJobScanValue(e.target.value); setJobError(''); }}
-              onKeyDown={handleJobKeyDown}
-              placeholder="Scan job barcode (must be from Scan Jobs page)..."
-            />
-            <Button variant="contained" size="small" onClick={handleJobScan}
-              disabled={!jobScanValue.trim()} className="sbe-btn-primary">
-              Add Job
-            </Button>
-            {/* Material type indicator */}
-            <span className="sbe-mat-badge">{matLabel}</span>
-          </div>
-          {jobError && <div className="sbe-error"><AlertTriangle size={13} /> {jobError}</div>}
-        </div>
+        <ScannerInput
+          ref={jobInputRef}
+          value={jobScanValue}
+          onChange={(e) => { setJobScanValue(e.target.value); setJobError(''); }}
+          onKeyDown={handleJobKeyDown}
+          onSubmit={handleJobScan}
+          placeholder="Scan job barcode (must be from Scan Jobs page)..."
+          label="Scan Job"
+          buttonLabel="Add Job"
+          error={jobError}
+          autoFocus
+        />
 
         {/* ── Empty state ── */}
         {!activeJob && savedJobs.length === 0 && (
@@ -866,6 +982,10 @@ const SingleBulkEntry = ({ state, actions }) => {
                 <strong>{activeJob.Serialfor}</strong>
                 <span>Customer:</span>
                 <strong>{activeJob.customerCode}</strong>
+                <span>Metal:</span>
+                <strong>{activeJob.metal || '—'}</strong>
+                <span>Color:</span>
+                <strong>{activeJob.metalColor || '—'}</strong>
                 <span> Current Status:</span>
                 <strong>{activeJob.CurrentStatus}</strong>
               </div>
@@ -911,19 +1031,7 @@ const SingleBulkEntry = ({ state, actions }) => {
                 ) : (
                   sortedMaterials.map((mat, idx) => {
                     const has = !!mat.assignedBag;
-
-                    // Engaged-locked view only applies when there's an actual
-                    // assigned bag behind the engagement — otherwise a row can
-                    // show "Already Engaged" with a Return button even though
-                    // no physical bag was ever scanned for it.
-                    // NOTE: must not depend on activeJob.locked — a re-scanned
-                    // saved job sets locked=true, but engaged rows still need
-                    // their Return button and returned rows still need inputs.
                     const isEngagedLocked = mat.engagedLocked && has;
-
-                    // Row is blocked because its required bag was never scanned
-                    // in the Bag Scanning step, and no bag has been manually
-                    // assigned via "Add Other Bag" either.
                     const noBagBlocked = !has && mat.requiredBagNotScanned;
 
                     const isExhausted = !isEngagedLocked && !mat.engagedBypass && has && mat.matchedBag &&
@@ -997,18 +1105,18 @@ const SingleBulkEntry = ({ state, actions }) => {
                                   style={{ position: 'absolute', top: '20%', right: '-20px' }}
                                 >
                                   <RotateCcw size={9} /> Return
-                                    </button>
-                                  </div>
-                                </div>
-                                : noBagBlocked
-                                  ? <span className="sbe-exhausted-cell">Bag not scanned</span>
-                                  : isExhausted
-                                  ? <span className="sbe-exhausted-cell">Scan other bag</span>
-                                  : <input type="number"
-                                    className={`sbe-num ${!has ? 'sbe-num--off' : mat.pcsError ? 'sbe-num--error' : ''}`}
-                                    value={mat.pcs}
-                                    onChange={(e) => handleFieldChange(mat.__idx, 'pcs', e.target.value)}
-                                    placeholder="PCS" disabled={!has} />
+                                </button>
+                              </div>
+                            </div>
+                            : noBagBlocked
+                              ? <span className="sbe-exhausted-cell">Bag not scanned</span>
+                              : isExhausted
+                                ? <span className="sbe-exhausted-cell">Scan other bag</span>
+                                : <input type="number"
+                                  className={`sbe-num ${!has ? 'sbe-num--off' : mat.pcsError ? 'sbe-num--error' : ''}`}
+                                  value={mat.pcs}
+                                  onChange={(e) => handleFieldChange(mat.__idx, 'pcs', e.target.value)}
+                                  placeholder="PCS" disabled={!has} />
                           }
                           <p style={{ display: 'flex', padding: '0 7px', width: '100%' }}>
                             {has && mat.matchedBag && !isExhausted && !isEngagedLocked
@@ -1141,50 +1249,59 @@ const SingleBulkEntry = ({ state, actions }) => {
               />
             </div>
           )}
-          <div className="sbe-saved__title"><CheckCircle2 size={14} />Job</div>
-          {savedJobs.map((sj, i) => {
-            const a = sj.materials.filter((m) => m.assignedBag).length;
-            const n = sj.materials.length - a;
-            const totReqWt = sj.materials.reduce((acc, m) => acc + (m.requiredWt || 0), 0);
-            const totEntryWt = sj.materials.reduce((acc, m) => acc + (parseFloat(m.cwt) || 0), 0);
-            const totReqPcs = sj.materials.reduce((acc, m) => acc + (m.requiredPcs || 0), 0);
-            const totEntryPcs = sj.materials.reduce((acc, m) => acc + (parseFloat(m.pcs) || 0), 0);
+          <div className="sbe-saved__title"><CheckCircle2 size={14} />Total Summary</div>
 
+          {/* Per-job totals only — no material line list */}
+          {savedJobs.map((sj, i) => {
+            const t = jobTotals(sj.materials);
             return (
               <div key={i} className="sbe-saved__job">
                 <div className="sbe-saved__job-head">
                   <strong>{sj.jobId}</strong>
                   <span className="sbe-saved__meta">
-                    {sj.materials.length} rows · {a} bags
-                    {n > 0 && <span className="sbe-saved__no-bag-pill">{n} No Engage</span>}
+                    {t.engaged}/{t.rows} engaged
+                    {t.noEngage > 0 && <span className="sbe-saved__no-bag-pill">{t.noEngage} No Engage</span>}
                   </span>
                 </div>
-
-                {/* Summary totals */}
-                <div style={{ display: 'flex', gap: 8, padding: '4px 0 6px', flexWrap: 'wrap' }}>
-                  <span className="sbe-saved__sum-chip">
-                    PCS: <b>{totEntryPcs}</b>/<span style={{ color: '#888' }}>{totReqPcs}</span>
-                  </span>
-                  <span className="sbe-saved__sum-chip">
-                    CTW: <b>{totEntryWt.toFixed(3)}</b>/<span style={{ color: '#888' }}>{totReqWt.toFixed(3)}</span>
-                  </span>
-                </div>
-
-                <div className="sbe-saved__chips">
-                  {sj.materials.map((m, mi) => (
-                    <div key={`${m.qid}_${m.jid}_${mi}`} className={`sbe-saved__chip ${!m.assignedBag ? 'sbe-saved__chip--warn' : ''}`}>
-                      <span className="sbe-saved__spec">{m.shape} · {m.quality} · {m.color}{m.size ? ` · ${m.size}` : ''}</span>
-                      {m.assignedBag
-                        ? <span className="sbe-saved__bag">{m.assignedBag}</span>
-                        : <span className="sbe-saved__nobag">No Engage</span>
-                      }
-                      <span className="sbe-saved__vals">{m.pcs || '—'} pcs / {m.cwt || '—'} ctw</span>
-                    </div>
-                  ))}
+                <div className="sbe-saved__stats">
+                  <div className="sbe-saved__stat">
+                    <span>PCS</span>
+                    <b>{t.entryPcs}</b>
+                    <i>/ {t.reqPcs}</i>
+                  </div>
+                  <div className="sbe-saved__stat">
+                    <span>CTW</span>
+                    <b>{t.entryWt.toFixed(3)}</b>
+                    <i>/ {t.reqWt.toFixed(3)}</i>
+                  </div>
                 </div>
               </div>
             );
           })}
+
+          {/* Grand total across every saved job */}
+          <div className="sbe-saved__grand">
+            <div className="sbe-saved__grand-head">
+              Grand Total · {savedJobs.length} job{savedJobs.length > 1 ? 's' : ''}
+            </div>
+            <div className="sbe-saved__stats">
+              <div className="sbe-saved__stat">
+                <span>PCS</span>
+                <b>{grandTotals.entryPcs}</b>
+                <i>/ {grandTotals.reqPcs}</i>
+              </div>
+              <div className="sbe-saved__stat">
+                <span>CTW</span>
+                <b>{grandTotals.entryWt.toFixed(3)}</b>
+                <i>/ {grandTotals.reqWt.toFixed(3)}</i>
+              </div>
+              <div className="sbe-saved__stat">
+                <span>ENGAGED</span>
+                <b>{grandTotals.engaged}</b>
+                <i>/ {grandTotals.rows}</i>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

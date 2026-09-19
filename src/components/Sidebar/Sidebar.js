@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useEngage } from '../../context/EngageContext';
 import { User, Lock, Layers, Package, ScanLine, CheckCircle2, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { processSubTypeLabel } from '../../Utils/processLabels';
-import { MATERIAL_TYPE_LABELS } from '../../pages/SelectProcess/SelectProcess';
+import { materialTypeLabel } from '../../Utils/materialTypes';
 import './Sidebar.scss';
 
 const STANDARD_STEPS = [
@@ -107,7 +107,7 @@ const Sidebar = () => {
           {materialType && (
             <div className="sidebar__detail-item">
               <Package size={14} />
-              <span>{MATERIAL_TYPE_LABELS[materialType] || (materialType.charAt(0).toUpperCase() + materialType.slice(1))}</span>
+              <span>{materialTypeLabel(materialType)}</span>
             </div>
           )}
           {scannedJobs.length > 0 && (

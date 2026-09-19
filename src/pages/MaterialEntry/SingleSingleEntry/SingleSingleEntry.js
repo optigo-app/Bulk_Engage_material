@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  ScanLine, Save, PackageOpen, CheckCircle2,
+  Save, PackageOpen, CheckCircle2,
   Gem, Palette, Wrench, Package, AlertCircle, Pencil, X, RotateCcw, PackagePlus
 } from 'lucide-react';
 import Button from '@mui/material/Button';
+import { materialTypeItemIds } from '../../../Utils/materialTypes';
+import ScannerInput from '../../../components/ScannerInput/ScannerInput';
+import { useGlobalScanner } from '../../../hooks/useGlobalScanner';
 import './SingleSingleEntry.scss';
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
+import { getJobInfo } from '../../../Utils/globalFunc';
 import defaultJobImg from '../../../images/default.jpg';
 
 
@@ -72,13 +76,10 @@ const getMaterialColor = (itemid) => {
   }
 };
 
-const MATERIAL_TYPE_FILTER = { diamond: [3], colorstone: [4], misc: [7], findings: [5] };
-const getAllowedItemIds = (materialType) =>
-  materialType === 'all' ? null : (MATERIAL_TYPE_FILTER[materialType] ?? null);
+const getAllowedItemIds = (materialType) => materialTypeItemIds(materialType);
 
 const getMaterialLinesForJob = (serialJobNo, ScannedMaterials, requiredBags = [], scannedBags = [], materialType = 'all') => {
   const allowedItemIds = getAllowedItemIds(materialType);
-  const scannedRfbagSet = new Set(scannedBags.map((b) => norm(b.rfbag)));
   return ScannedMaterials.filter(
     (m) => norm(m.SerialJobNo) === norm(serialJobNo)
   ).filter(
@@ -87,7 +88,12 @@ const getMaterialLinesForJob = (serialJobNo, ScannedMaterials, requiredBags = []
     const lineRequiredBags = requiredBags.filter(
       (rb) => rb.qid === m.qid && rb.jid === m.jid
     );
-    const anyScanned = lineRequiredBags.some((rb) => scannedRfbagSet.has(norm(rb.rfbag)));
+    const anyScanned = lineRequiredBags.some((rb) =>
+      scannedBags.some((b) =>
+        norm(b.rfbag) === norm(rb.rfbag) &&
+        (!b.SerialJobNo || norm(b.SerialJobNo) === norm(serialJobNo))
+      )
+    );
     const hasRequired = lineRequiredBags.length > 0;
     return {
       lineKey: `${m.qid}_${m.jid}`,
@@ -115,13 +121,20 @@ const getMaterialLinesForJob = (serialJobNo, ScannedMaterials, requiredBags = []
   });
 };
 
-const tryAutoMatch = (material, ScannedBags) => {
+const matchesJob = (bag, jobSerial) =>
+  !bag.SerialJobNo || norm(bag.SerialJobNo) === norm(jobSerial);
+
+const tryAutoMatch = (material, ScannedBags, activeJobId) => {
   const byKey = ScannedBags.find(
-    (bag) => bag.qid === material.qid && bag.jid === material.jid
+    (bag) =>
+      bag.qid === material.qid &&
+      bag.jid === material.jid &&
+      (!bag.SerialJobNo || norm(bag.SerialJobNo) === norm(material.SerialJobNo || activeJobId))
   );
   if (byKey) return byKey;
   const isFinding = material.itemid === 5;
   return ScannedBags.find((bag) => {
+    if (!matchesJob(bag, material.SerialJobNo || activeJobId)) return false;
     if (bag.itemid !== material.itemid) return false;
     if (isFinding) {
       return (
@@ -138,9 +151,11 @@ const tryAutoMatch = (material, ScannedBags) => {
   }) ?? null;
 };
 
-const lookupBagFromPool = (rfbagVal, ScannedBags, AllBagListData) => {
+const lookupBagFromPool = (rfbagVal, ScannedBags, AllBagListData, activeJobId) => {
   const inScanned = ScannedBags.find(
-    (b) => norm(b.rfbag) === norm(rfbagVal) || norm(b.rfbag).endsWith(norm(rfbagVal))
+    (b) =>
+      (norm(b.rfbag) === norm(rfbagVal) || norm(b.rfbag).endsWith(norm(rfbagVal))) &&
+      (!activeJobId || matchesJob(b, activeJobId))
   );
   if (inScanned) return inScanned;
 
@@ -288,9 +303,10 @@ const SingleSingleEntry = ({ state, actions }) => {
       }));
   };
 
-  const handleJobScan = () => {
-    const val = jobScanValue.trim();
+  const handleJobScan = (rawVal) => {
+    const val = (rawVal ?? jobScanValue).trim();
     if (!val) return;
+    setJobScanValue(val);
     setJobError('');
     setAddingOtherBag(false);
 
@@ -331,6 +347,7 @@ const SingleSingleEntry = ({ state, actions }) => {
           findingAccessories: '',
           reqPcs: 0,
           reqWt: 0,
+          isOtherBagAuto: b.isOtherBagAuto || false,   // ← ADD THIS
           isUnusedBag: true,
           assignedBag: b.bag,
           entry: { pcs: b.pcs, wt: b.wt },
@@ -338,12 +355,17 @@ const SingleSingleEntry = ({ state, actions }) => {
           requiredBagNotScanned: false,
         }));
 
-      const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
-      console.log('jobInfo: ', jobInfo);
+      const jobInfo = getJobInfo(val, ScannedJobList);
       setActiveJob({
-        id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
-        Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
-        CurrentStatus: jobInfo?.status
+        id: val,
+        locked: completedJobs.includes(norm(val)),
+        imagepath: jobInfo?.imagepath ?? null,
+        Designno: jobInfo?.design,
+        Serialfor: jobInfo?.category,
+        customerCode: jobInfo?.ccode,
+        CurrentStatus: jobInfo?.status,
+        metal: jobInfo?.metal,
+        metalColor: jobInfo?.color,
       });
       setMaterialLines([...restored, ...restoredExtras]);
       setActiveLineKey(null);
@@ -355,7 +377,7 @@ const SingleSingleEntry = ({ state, actions }) => {
     const lines = getMaterialLinesForJob(val, ScannedMaterials, state.requiredBags, state.scannedBags, state.materialType);
 
     const withAutoMatch = lines.map((line) => {
-      const matched = tryAutoMatch(line, ScannedBags);
+      const matched = tryAutoMatch(line, ScannedBags, val);
       if (!matched) {
         const engagedRows = (AllEngagedMaterial || []).filter(e => {
           if (!e.isengage) return false;
@@ -373,7 +395,7 @@ const SingleSingleEntry = ({ state, actions }) => {
 
         if (engagedRows.length > 0) {
           const engRfbag = engagedRows[0].rfbag;
-          const rawBag = lookupBagFromPool(engRfbag, ScannedBags, AllBagListData);
+          const rawBag = lookupBagFromPool(engRfbag, ScannedBags, AllBagListData, val);
           const bagObj = rawBag
             ? {
               rfbag: rawBag.rfbag,
@@ -452,7 +474,7 @@ const SingleSingleEntry = ({ state, actions }) => {
           norm(e.Size || '') === norm(line.size || '');
       });
     }).map((e, idx) => {
-      const rawBag = lookupBagFromPool(e.rfbag, ScannedBags, AllBagListData);
+      const rawBag = lookupBagFromPool(e.rfbag, ScannedBags, AllBagListData, val);
       const txnidList = [...e.txnids];
       return {
         lineKey: `extra-${norm(e.rfbag)}-${e.itemid}-${idx}`,
@@ -494,6 +516,7 @@ const SingleSingleEntry = ({ state, actions }) => {
         .map(norm)
     );
 
+    // FIX: other bags ke liye sirf is job ke already-assigned bags exclude karo
     const usedElsewhere = getUsedBagRfbags(state.jobEntries);
     const excludeForThisJob = new Set([...alreadyAssignedRfbags, ...usedElsewhere]);
 
@@ -501,16 +524,21 @@ const SingleSingleEntry = ({ state, actions }) => {
       val,
       state.otherBags,
       ScannedJobList,
-      excludeForThisJob
+      alreadyAssignedRfbags  // ← sirf is job ke assigned bags exclude karo
     );
 
     const allLines = [...withAutoMatch, ...extraLines, ...otherBagLines];
-    const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(val));
-    console.log('jobInfo: ', jobInfo);
+    const jobInfo = getJobInfo(val, ScannedJobList);
     setActiveJob({
-      id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
-      Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
-      CurrentStatus: jobInfo?.status
+      id: val,
+      locked: false,
+      imagepath: jobInfo?.imagepath ?? null,
+      Designno: jobInfo?.design,
+      Serialfor: jobInfo?.category,
+      customerCode: jobInfo?.ccode,
+      CurrentStatus: jobInfo?.status,
+      metal: jobInfo?.metal,
+      metalColor: jobInfo?.color,
     });
     setMaterialLines(allLines);
     setActiveLineKey(null);
@@ -602,7 +630,7 @@ const SingleSingleEntry = ({ state, actions }) => {
     if (!activeLine && !addingOtherBag) return;
     setAssignError('');
 
-    const rawBag = lookupBagFromPool(val, ScannedBags, AllBagListData);
+    const rawBag = lookupBagFromPool(val, ScannedBags, AllBagListData, activeJob.id);
     if (!rawBag) {
       setAssignError(`Bag "${val}" not found in locker data.`);
       setAssignScanValue('');
@@ -671,6 +699,7 @@ const SingleSingleEntry = ({ state, actions }) => {
         reqPcs: 0,
         reqWt: 0,
         isUnusedBag: true,
+        isOtherBagAuto: true,
         isExtraEngaged: false,
         assignedBag: bagObj,
         entry: null,
@@ -744,6 +773,7 @@ const SingleSingleEntry = ({ state, actions }) => {
         jid: fallbackJid,
         serialjobno: activeJob.id,
         isUnusedBag: activeLine.isUnusedBag,
+        isOtherBagAuto: activeLine.isOtherBagAuto || false,   // ← ADD THIS
         itemid: activeLine.itemid || activeLine.assignedBag?.itemid || null,
         shape: activeLine.shape || activeLine.assignedBag?.shape || '',
         quality: activeLine.quality || activeLine.assignedBag?.quality || '',
@@ -852,39 +882,26 @@ const SingleSingleEntry = ({ state, actions }) => {
     });
   }, [materialLines]);
 
+  useGlobalScanner(jobInputRef, handleJobScan);
+
   return (
     <div className="sse-root">
 
       {phase === 'scan-job' && (
         <div className="sse-scan-prompt">
           <div className="sse-scan-card">
-            <div className="sse-scan-card__icon"><ScanLine size={44} /></div>
-            <h2>Scan Job</h2>
-            <p>Scan a job barcode to begin material entry</p>
-            <div className="sse-scan-card__row">
-              <input
-                ref={jobInputRef}
-                type="text"
-                className="sse-input"
-                value={jobScanValue}
-                onChange={(e) => { setJobScanValue(e.target.value); setJobError(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleJobScan()}
-                placeholder="Scan job barcode..."
-              />
-              <Button
-                variant="contained"
-                onClick={handleJobScan}
-                className="sse-btn-scan"
-                disabled={!jobScanValue.trim()}
-              >
-                Scan
-              </Button>
-            </div>
-            {jobError && (
-              <div className="sse-error">
-                <AlertCircle size={15} /><span>{jobError}</span>
-              </div>
-            )}
+            <ScannerInput
+              ref={jobInputRef}
+              value={jobScanValue}
+              onChange={(e) => { setJobScanValue(e.target.value); setJobError(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleJobScan()}
+              onSubmit={handleJobScan}
+              placeholder="Scan job barcode..."
+              label="Scan Job"
+              buttonLabel="Scan"
+              error={jobError}
+              autoFocus
+            />
             {ScannedJobList.length > 0 && (
               <div className="sse-scan-card__hint" style={{ color: 'lightgray' }}>
                 {ScannedJobList.length} Job{ScannedJobList.length !== 1 ? 's' : ''} Available
@@ -922,6 +939,10 @@ const SingleSingleEntry = ({ state, actions }) => {
               <strong>{activeJob.Serialfor}</strong>
               <span>Customer:</span>
               <strong>{activeJob.customerCode}</strong>
+              <span>Metal:</span>
+              <strong>{activeJob.metal || '—'}</strong>
+              <span>Color:</span>
+              <strong>{activeJob.metalColor || '—'}</strong>
               <span> Current Status:</span>
               <strong>{activeJob.CurrentStatus}</strong>
             </div>
@@ -1091,7 +1112,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                               <Pencil size={13} />
                             </button>
                           )}
-                          {/* {!isSaved && !isActive && !hasBAg && (
+                          {!isSaved && !isActive && !hasBAg && (
                             <span className={`sse-bag-row__badge ${line.requiredBagNotScanned ? 'sse-bag-row__badge--not-scanned' : 'sse-bag-row__badge--warn'}`}>
                               {line.requiredBagNotScanned ? 'Not Scanned' : 'NoBag'}
                             </span>
@@ -1100,7 +1121,7 @@ const SingleSingleEntry = ({ state, actions }) => {
                             <span className="sse-bag-row__badge sse-bag-row__badge--pending">
                               Enter
                             </span>
-                          )} */}
+                          )}
                         </div>
                       </div>
                     );

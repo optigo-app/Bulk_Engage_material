@@ -7,6 +7,7 @@ import {
   PROCESS_TYPE_LABELS, PROCESS_TYPE_DESC,
   PROCESS_SUBTYPE_LABELS, PROCESS_SUBTYPE_DESC,
 } from '../../Utils/processLabels';
+import { MATERIAL_TYPE_LABELS, toMaterialTypeList } from '../../Utils/materialTypes';
 import './SelectProcess.scss';
 
 const MATERIALS = [
@@ -17,14 +18,8 @@ const MATERIALS = [
   { id: 'findings', label: 'Findings', icon: Wrench, color: '#8f3bfc' },
 ];
 
-// Centralized material-type display labels (used by Sidebar / Summary etc.)
-export const MATERIAL_TYPE_LABELS = {
-  all: 'All',
-  diamond: 'Diamond/Solitaire',
-  colorstone: 'ColorStone/Gemstone',
-  misc: 'Misc',
-  findings: 'Findings',
-};
+// Re-exported for existing consumers (Sidebar, Confirmation, ...)
+export { MATERIAL_TYPE_LABELS };
 
 const SelectProcess = () => {
   const navigate = useNavigate();
@@ -37,6 +32,10 @@ const SelectProcess = () => {
   });
   const [focusedIdx, setFocusedIdx] = useState(0);
   const gridRef = useRef(null);
+  // Step 3 supports multi-select: an array of material ids.
+  const [selectedMaterials, setSelectedMaterials] = useState(() =>
+    toMaterialTypeList(state.materialType)
+  );
 
   useEffect(() => {
     actions.setStep(3);
@@ -49,7 +48,7 @@ const SelectProcess = () => {
     const selectedId =
       step === 1 ? state.processType
         : step === 2 ? state.processSubType
-          : step === 3 ? state.materialType
+          : step === 3 ? toMaterialTypeList(state.materialType)[0]
             : null;
     const idx = selectedId ? items.indexOf(selectedId) : -1;
     setFocusedIdx(idx >= 0 ? idx : 0);
@@ -148,8 +147,24 @@ const SelectProcess = () => {
     setStep(3);
   };
 
+  // Step 3 is multi-select: clicking a card toggles it in/out of the
+  // selection. 'All' is exclusive — picking it clears the others, and
+  // picking a specific type clears 'All'.
   const handleMaterial = (material) => {
-    actions.setMaterialType(material);
+    setSelectedMaterials((prev) => {
+      if (material === 'all') {
+        return prev.includes('all') ? [] : ['all'];
+      }
+      const withoutAll = prev.filter((m) => m !== 'all');
+      return withoutAll.includes(material)
+        ? withoutAll.filter((m) => m !== material)
+        : [...withoutAll, material];
+    });
+  };
+
+  const handleMaterialContinue = () => {
+    if (!selectedMaterials.length) return;
+    actions.setMaterialType(selectedMaterials);
     navigate('/scan-jobs');
   };
 
@@ -157,6 +172,7 @@ const SelectProcess = () => {
   const handleBackStep = () => {
     if (step === 3) {
       actions.setMaterialType(null);
+      setSelectedMaterials([]);
       setStep(2);
     } else if (step === 2) {
       actions.setProcessSubType(null);
@@ -314,7 +330,7 @@ const SelectProcess = () => {
           <div className="select-process__material-grid" ref={gridRef}>
             {MATERIALS.map((mat, idx) => {
               const Icon = mat.icon;
-              const isSelected = state.materialType === mat.id;
+              const isSelected = selectedMaterials.includes(mat.id);
               return (
                 <div
                   key={mat.id}
@@ -332,9 +348,13 @@ const SelectProcess = () => {
                     <Icon size={28} />
                   </div>
                   <span className="select-process__material-label">{mat.label}</span>
-                  {isSelected && (
-                    <div className="select-process__material-check">✓</div>
-                  )}
+                  {/* Round toggle icon — top-right of every card */}
+                  <div className={[
+                    'select-process__material-check',
+                    !isSelected ? 'select-process__material-check--empty' : '',
+                  ].filter(Boolean).join(' ')}>
+                    {isSelected ? '✓' : ''}
+                  </div>
                 </div>
               );
             })}
@@ -352,6 +372,17 @@ const SelectProcess = () => {
         >
           Back
         </Button>
+        {step === 3 && (
+          <Button
+            variant="contained"
+            onClick={handleMaterialContinue}
+            endIcon={<ArrowRight size={18} />}
+            className="select-process__continue-btn"
+            disabled={!selectedMaterials.length}
+          >
+            Continue
+          </Button>
+        )}
       </div>
 
     </div>
