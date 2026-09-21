@@ -95,6 +95,9 @@ function engageReducer(state, action) {
     case ACTIONS.RESET_BAG_AND_MATERIAL:
       return { ...state, scannedBags: [], jobEntries: {}, otherBags: [] };
 
+    case 'REMOVE_OTHER_BAG':
+      return { ...state, otherBags: state.otherBags.filter(b => b.id !== action.payload) };
+
     default:
       return state;
   }
@@ -123,6 +126,7 @@ export function EngageProvider({ children }) {
     reset: () => dispatch({ type: ACTIONS.RESET }),
     resetBagAndMaterial: () => dispatch({ type: ACTIONS.RESET_BAG_AND_MATERIAL }),
     setScannedJobs: (jobs) => dispatch({ type: ACTIONS.SET_SCANNED_JOBS, payload: jobs }),
+    removeOtherBag: (id) => dispatch({ type: 'REMOVE_OTHER_BAG', payload: id }),
   };
 
   return (

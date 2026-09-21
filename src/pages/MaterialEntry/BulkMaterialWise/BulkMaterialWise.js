@@ -149,9 +149,8 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
 
   const map = new Map();
   lines.forEach((line) => {
-    // One row per JOB + spec — do NOT combine the same spec across jobs.
-    // (Lines that share the same spec WITHIN a single job are still merged.)
-    const key = `${norm(line.SerialJobNo)}||${groupKey(line)}`;
+    const key = groupKey(line); // ← SerialJobNo hata diya
+
     if (!map.has(key)) {
       const autoMatch = ScannedBags.find(b =>
         b.qid === line.qid &&
@@ -162,13 +161,11 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
         rfbag: autoMatch.rfbag,
         pcs: autoMatch.rempcs ?? autoMatch.pcs ?? Number(autoMatch.scannedPcs || 0),
         wt: autoMatch.remwt ?? autoMatch.wt ?? Number(autoMatch.scannedCwt || 0),
-        // ── carry the owner flag through so the Company/Customer badge
-        // can render on the bag chip, same as BulkSingleEntry ──
         iscompany: autoMatch.iscompany,
       } : null;
+
       map.set(key, {
         rowKey: key,
-        // Center stones carry the ":S" / ":G" suffix on the material name.
         item: withCenterSuffix(line.item || '', line),
         itemid: line.itemid,
         IsCenterStone: line.IsCenterStone ?? 0,
@@ -181,6 +178,8 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
         findingtypename: line.findingtypename || '',
         findingAccessories: line.findingAccessories || '',
         reqPcs: 0, reqWt: 0,
+        reqPcsPerJob: {},  // ← ADD
+        reqWtPerJob: {},   // ← ADD
         matchedBag: bag,
         manualBag: null,
         jobNos: [],
@@ -188,9 +187,13 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
         txnid: null,
       });
     }
+
     const row = map.get(key);
     row.reqPcs += line.pcs || 0;
-    row.reqWt += line.wt || 0;
+    row.reqWt  += line.wt  || 0;
+    // ↓ ADD these two lines
+    row.reqPcsPerJob[line.SerialJobNo] = (row.reqPcsPerJob[line.SerialJobNo] || 0) + (line.pcs || 0);
+    row.reqWtPerJob[line.SerialJobNo]  = (row.reqWtPerJob[line.SerialJobNo]  || 0) + (line.wt  || 0);
     row.jobNos.push(line.SerialJobNo);
     row.qids.push(line.qid);
     row.jids.push(line.jid);
@@ -519,40 +522,43 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
       const b = r.matchedBag || r.manualBag;
       return b && !engagedLocked.has(r.rowKey) && !(parseFloat(inputs[r.rowKey]?.cwt) > 0);
     })) return;
-    const entries = rows.map((r) => {
+    // entries build karte waqt, har row ke liye jobNos.length se divide:
+    const entries = rows.flatMap((r) => {
       const bag = r.matchedBag || r.manualBag;
-      // For engaged-only rows (no scanned bag), fall back to the rfbag
-      // resolved from allEngagedMaterial via getEngagedTotals.
       const resolvedRfbag = bag?.rfbag ?? r.engagedRfbag ?? null;
-      return {
-        rowKey: r.rowKey,
-        serialjobno: r.jobNos?.[0] ?? null,
-        jobNos: r.jobNos ?? [],
-        qid: r.qids?.[0] ?? null,
-        jid: r.jids?.[0] ?? null,
-        isUnusedBag: !(r.qids?.length),
-        item: r.item,
-        itemid: r.itemid,
-        IsCenterStone: r.IsCenterStone ?? 0,
-        stone_uniqueno: r.stone_uniqueno || '',
-        MaterialTypeName: r.MaterialTypeName,
-        shape: r.shape,
-        quality: r.quality,
-        color: r.color,
-        size: r.size,
-        findingtypename: r.findingtypename || '',
-        findingAccessories: r.findingAccessories || '',
-        reqPcs: r.reqPcs,
-        reqWt: r.reqWt,
-        requiredPcs: r.reqPcs,
-        requiredWt: r.reqWt,
-        rfbag: resolvedRfbag,
-        bag: (bag || resolvedRfbag) ? { rfbag: resolvedRfbag ?? '' } : null,
-        iscompany: bag?.iscompany ?? null,
-        pcs: parseFloat(inputs[r.rowKey]?.pcs) || 0,
-        wt: parseFloat(inputs[r.rowKey]?.cwt) || 0,
-        txnid: r.txnid ?? 0,
-      };
+      const totalPcs = parseFloat(inputs[r.rowKey]?.pcs) || 0;
+      const totalWt = parseFloat(inputs[r.rowKey]?.cwt) || 0;
+      const jobCount = r.jobNos.length || 1;
+
+      return r.jobNos.map((jobNo, idx) => {
+        // Proportional split by each job's reqPcs
+        const jobReqPcs = r.qids[idx] ? /* per-job reqPcs */ (r.reqPcsPerJob?.[jobNo] ?? r.reqPcs / jobCount) : r.reqPcs / jobCount;
+        const jobReqWt = r.reqWtPerJob?.[jobNo] ?? r.reqWt / jobCount;
+        const ratio = r.reqPcs > 0 ? jobReqPcs / r.reqPcs : 1 / jobCount;
+        return {
+          rowKey: r.rowKey,
+          serialjobno: jobNo,
+          jobNos: [jobNo],
+          qid: r.qids[idx] ?? null,
+          jid: r.jids[idx] ?? null,
+          isUnusedBag: !(r.qids?.length),
+          item: r.item, itemid: r.itemid,
+          IsCenterStone: r.IsCenterStone ?? 0,
+          stone_uniqueno: r.stone_uniqueno || '',
+          MaterialTypeName: r.MaterialTypeName,
+          shape: r.shape, quality: r.quality, color: r.color, size: r.size,
+          findingtypename: r.findingtypename || '',
+          findingAccessories: r.findingAccessories || '',
+          reqPcs: jobReqPcs, reqWt: jobReqWt,
+          requiredPcs: jobReqPcs, requiredWt: jobReqWt,
+          rfbag: resolvedRfbag,
+          bag: (bag || resolvedRfbag) ? { rfbag: resolvedRfbag ?? '' } : null,
+          iscompany: bag?.iscompany ?? null,
+          pcs: Math.round(totalPcs * ratio),
+          wt: parseFloat((totalWt * ratio).toFixed(3)),
+          txnid: r.txnid ?? 0,
+        };
+      });
     });
     actions?.updateJobEntry?.('bulk-material', { bags: entries });
     setIsSaved(true);

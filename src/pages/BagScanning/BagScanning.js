@@ -409,42 +409,49 @@ const BagScanning = () => {
     const val = scannedBag ?? scanValue.trim();
     if (!val) return;
 
-    const bag = state.requiredBags.find((b) => b.rfbag === val || b.id === val);
-    if (bag) {
-      if (!state.scannedBags.find((b) => b.id === bag.id)) {
-        actions.addScannedBag(bag);
-        setLastScanned(bag.id);
+    // ── Find ALL required bags with this rfbag (multiple jobs same bag) ──
+    const matchingBags = state.requiredBags.filter(
+      (b) => b.rfbag === val || b.id === val
+    );
+
+    if (matchingBags.length > 0) {
+      let anyAdded = false;
+      matchingBags.forEach((bag) => {
+        if (!state.scannedBags.find((b) => b.id === bag.id)) {
+          actions.addScannedBag(bag);
+          setBagData((prev) => ({
+            ...prev,
+            [bag.id]: {
+              pcs: bag.rempcs !== undefined ? String(bag.rempcs) : '',
+              cwt: bag.remwt !== undefined ? String(bag.remwt) : '',
+            },
+          }));
+          anyAdded = true;
+        }
+      });
+
+      if (anyAdded) {
+        // highlight last matched bag id
+        setLastScanned(matchingBags[matchingBags.length - 1].id);
         setLastOtherScanned(null);
         setScanMessage(null);
-
-        setBagData((prev) => ({
-          ...prev,
-          [bag.id]: {
-            pcs: bag.rempcs !== undefined ? String(bag.rempcs) : '',
-            cwt: bag.remwt !== undefined ? String(bag.remwt) : '',
-          },
-        }));
-
         setListVisible(false);
         clearTimeout(listTimerRef.current);
         listTimerRef.current = setTimeout(() => setListVisible(true), 600);
       }
-    } else {
-      const ownership = checkBagOwnership(val);
 
+    } else {
+      // existing other-bag logic unchanged...
+      const ownership = checkBagOwnership(val);
       if (ownership && ownership.ok === false) {
         const text = ownership.bag
           ? `Bag ${val} belongs to ${ownership.bag.istoreCust_CustName || 'another customer'} — not allowed for this job.`
           : `Bag ${val} not found — not allowed for this job.`;
-
         setScanMessage({ type: 'error', text });
         setScanValue('');
         inputRef.current?.focus();
         return;
       }
-
-      // ── Locker restriction: only allow other bags from the currently
-      // selected locker (mirrors SingleSingleEntry's assign-bag check). ──
       if (ownership?.bag) {
         const bagLockerName = (ownership.bag.LockerName || '').replace(/\s/g, '');
         const selectedLockerName = (state.locker?.name || '').replace(/\s/g, '');
@@ -458,33 +465,26 @@ const BagScanning = () => {
           return;
         }
       }
-
       if (!state.otherBags.find((b) => b.id === val)) {
         const foundBag = ownership?.bag;
         const foundIsCS = foundBag ? isCenterStone(foundBag) : false;
         actions.addOtherBag(
-          foundBag
-            ? {
-              id: val,
-              rfbag: foundBag.rfbag,
-              itemid: foundBag.itemid,
-              IsCenterStone: foundBag.IsCenterStone ?? 0,
-              stone_uniqueno: foundBag.stone_uniqueno || "",
-              type: getItemLabel(foundBag.itemid, foundIsCS),
-              color: getItemColor(foundBag.itemid, foundIsCS),
-              shape: foundBag.shape,
-              quality: foundBag.Quality,
-              size: foundBag.Size || foundBag.customesize || "",
-              color_name: foundBag.color,
-              findingtypename: foundBag.findingtypename || "",
-              findingAccessories: foundBag.findingAccessories || "",
-              remwt: foundBag.remwt,
-              rempcs: foundBag.rempcs,
-              LockerName: foundBag.LockerName,
-              iscompany: foundBag.iscompany,
-              istoreCust_CustName: foundBag.istoreCust_CustName,
-              istoreCust_Customercode: foundBag.istoreCust_Customercode, // ← add this
-            }
+          foundBag ? {
+            id: val, rfbag: foundBag.rfbag, itemid: foundBag.itemid,
+            IsCenterStone: foundBag.IsCenterStone ?? 0,
+            stone_uniqueno: foundBag.stone_uniqueno || "",
+            type: getItemLabel(foundBag.itemid, foundIsCS),
+            color: getItemColor(foundBag.itemid, foundIsCS),
+            shape: foundBag.shape, quality: foundBag.Quality,
+            size: foundBag.Size || foundBag.customesize || "",
+            color_name: foundBag.color,
+            findingtypename: foundBag.findingtypename || "",
+            findingAccessories: foundBag.findingAccessories || "",
+            remwt: foundBag.remwt, rempcs: foundBag.rempcs,
+            LockerName: foundBag.LockerName, iscompany: foundBag.iscompany,
+            istoreCust_CustName: foundBag.istoreCust_CustName,
+            istoreCust_Customercode: foundBag.istoreCust_Customercode,
+          }
             : { id: val, label: val, type: "unknown", color: "#ef4444" }
         );
         setLastOtherScanned(val);
@@ -1100,9 +1100,14 @@ const BagScanning = () => {
                       </div>
 
                       <div className="bag-scanning__bag-status">
-                        <span className="bag-scanning__bag-badge bag-scanning__bag-badge--extra">
-                          Extra
-                        </span>
+                        <button
+                          className="bag-scanning__bag-chip-remove"
+                          title="Remove"
+                          onClick={() => actions.removeOtherBag(bag.id)}
+                          style={{border: 'none'}}
+                        >
+                          <X size={13} />
+                        </button>
                       </div>
                     </div>
                   );
