@@ -11,7 +11,7 @@ import ScannerInput from '../../../components/ScannerInput/ScannerInput';
 import { useGlobalScanner } from '../../../hooks/useGlobalScanner';
 import './Bulksingleentry.scss';
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
-import { getJobInfo } from '../../../Utils/globalFunc';
+import { getJobInfo, getRemainingBagStock } from '../../../Utils/globalFunc';
 import { materialTypeItemIds } from '../../../Utils/materialTypes';
 
 
@@ -132,7 +132,7 @@ const matLabel = (item = '') => {
 
 const materialTypeFilter = (m, materialType) => {
   const allowed = materialTypeItemIds(materialType);
-  return !allowed || allowed.includes(m.itemid);
+  return !allowed || allowed.includes(Number(m.itemid));
 };
 
 const ITEM_ORDER = { 3: 1, 4: 3, 5: 5, 7: 6 };
@@ -151,43 +151,42 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
     .filter(m => materialTypeFilter(m, materialType))
     .map((m, idx) => {
       const mIsCS = isCenterStone(m);
-      const lineRequiredBags = requiredBags.filter(rb => rb.qid === m.qid && rb.jid === m.jid);
-      const anyScanned = lineRequiredBags.some(rb =>
-        ScannedBags.some(b =>
-          norm(b.rfbag) === norm(rb.rfbag) &&
-          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
-        ) ||
-        scannedBagsCtx.some(b =>
-          norm(b.rfbag) === norm(rb.rfbag) &&
-          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
-        )
+      const sameJob = (b) => !b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo);
+      const bagPool = [...ScannedBags, ...scannedBagsCtx].filter((b, bagIdx, all) =>
+        all.findIndex((candidate) =>
+          norm(candidate.rfbag) === norm(b.rfbag) &&
+          String(candidate.qid ?? '') === String(b.qid ?? '') &&
+          String(candidate.jid ?? '') === String(b.jid ?? '') &&
+          norm(candidate.SerialJobNo) === norm(b.SerialJobNo)
+        ) === bagIdx
+      );
+      const lineRequiredBags = requiredBags.filter((rb) =>
+        String(rb.qid ?? '') === String(m.qid ?? '') &&
+        String(rb.jid ?? '') === String(m.jid ?? '') &&
+        sameJob(rb)
+      );
+      const anyScanned = lineRequiredBags.some((rb) =>
+        bagPool.some((b) => norm(b.rfbag) === norm(rb.rfbag) && sameJob(b))
       );
       const hasRequired = lineRequiredBags.length > 0;
 
       const byQidJid = (m.qid != null && m.jid != null)
-        ? ScannedBags.find(b =>
+        ? bagPool.find((b) =>
           String(b.qid) === String(m.qid) &&
           String(b.jid) === String(m.jid) &&
-          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
+          sameJob(b)
         )
         : null;
 
       const scannedReqBag = lineRequiredBags
-        .map(rb =>
-          ScannedBags.find(b =>
-            norm(b.rfbag) === norm(rb.rfbag) &&
-            (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
-          ) ||
-          scannedBagsCtx.find(b =>
-            norm(b.rfbag) === norm(rb.rfbag) &&
-            (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo))
-          )
-        )
+        .map((rb) => bagPool.find((b) =>
+          norm(b.rfbag) === norm(rb.rfbag) && sameJob(b)
+        ))
         .find(Boolean);
 
-      const bySpec = ScannedBags.find(b =>
-        (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo)) &&
-        b.itemid === m.itemid &&
+      const bySpec = bagPool.find((b) =>
+        sameJob(b) &&
+        Number(b.itemid) === Number(m.itemid) &&
         norm(b.shape || '') === norm(m.shape || '') &&
         norm(b.quality || b.Quality || '') === norm(m.Quality || '') &&
         norm(b.color_name || b.color || '') === norm(m.color || '') &&
@@ -197,9 +196,8 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
       );
 
       const byRequiredRfbag = lineRequiredBags.length > 0
-        ? ScannedBags.find(b =>
-          (!b.SerialJobNo || norm(b.SerialJobNo) === norm(m.SerialJobNo)) &&
-          lineRequiredBags.some(rb => norm(rb.rfbag) === norm(b.rfbag))
+        ? bagPool.find((b) =>
+          sameJob(b) && lineRequiredBags.some((rb) => norm(rb.rfbag) === norm(b.rfbag))
         )
         : null;
 
@@ -240,7 +238,7 @@ const buildJobRows = (serialJobNo, ScannedMaterials, ScannedBags, materialType =
 };
 
 // ─── Job-wise Add Other Bag Modal ─────────────────────────────────────────────
-const AddOtherBagModal = ({ jobId, rows, onAssign, onAddNew, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName }) => {
+const AddOtherBagModal = ({ jobId, rows, onAssign, onAddNew, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName, jobEntries }) => {
   const [val, setVal] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -279,6 +277,25 @@ const AddOtherBagModal = ({ jobId, rows, onAssign, onAddNew, onClose, scannedBag
   };
 
   const assignBagToMatchingRow = (bag) => {
+    if (rows.some((row) => norm((row.matchedBag || row.manualBag)?.rfbag) === norm(bag.rfbag))) {
+      setError(`Bag "${bag.rfbag}" is already added to this job.`);
+      return;
+    }
+
+    const remaining = getRemainingBagStock(
+      jobEntries,
+      bag.rfbag,
+      bag.pcs,
+      bag.wt,
+      jobId
+    );
+    if (remaining.pcs <= 0 || remaining.cwt <= 0) {
+      setError(`Bag "${bag.rfbag}" is fully used. No PCS / CWT remains.`);
+      return;
+    }
+    bag.pcs = remaining.pcs;
+    bag.wt = remaining.cwt;
+
     {
       const allBagFull = AllBagListData.find((b) => norm(b.rfbag) === norm(bag.rfbag));
       const bagLockerName = (allBagFull?.LockerName || bag.LockerName || '').replace(/\s/g, '');
@@ -357,37 +374,6 @@ const AddOtherBagModal = ({ jobId, rows, onAssign, onAddNew, onClose, scannedBag
             <div><span>{info}</span></div>
           </div>
         )}
-        <div className="bse-modal__bag-list-head">
-          <span>Scanned Bags</span>
-          <span className="bse-row-count">{availableScannedBags.length}</span>
-        </div>
-        <div className="bse-modal__bag-list">
-          {availableScannedBags.length === 0 ? (
-            <div className="bse-modal__bag-empty">No unassigned scanned bags available.</div>
-          ) : (
-            availableScannedBags.map((b, i) => (
-              <button
-                key={`${b.rfbag}_${i}`}
-                type="button"
-                className="bse-modal__bag-item"
-                onClick={() => assignBagToMatchingRow({
-                  rfbag: b.rfbag, itemid: b.itemid, shape: b.shape,
-                  quality: b.quality, size: b.size, color_name: b.color_name,
-                  findingtypename: b.findingtypename || '', findingAccessories: b.findingAccessories || '',
-                  pcs: b.rempcs ?? b.pcs ?? Number(b.scannedPcs ?? 0),
-                  wt: b.remwt ?? b.wt ?? Number(b.scannedCwt ?? 0),
-                  iscompany: b.iscompany,
-                })}
-                style={{ '--ic': matColor(b.item || b.type || '') }}
-              >
-                <span className="bse-modal__bag-no">{b.rfbag}</span>
-                <span className="bse-modal__bag-spec">
-                  {b.shape} · {b.quality} · {b.color_name} · {b.size}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
       </div>
     </div>
   );
@@ -1479,6 +1465,7 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
             AllBagListData={AllBagListData}
             scannedJobList={ScannedJobList}
             selectedLockerName={state.locker?.name || ''}
+            jobEntries={state.jobEntries}
           />
         )}
 

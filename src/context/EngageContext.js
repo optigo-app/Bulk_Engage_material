@@ -12,7 +12,8 @@ const initialState = {
   scannedJobs: [],
   requiredBags: [],
   scannedBags: [],
-  jobEntries: {},          // { jobId: { bags: [{ bagId, cwt, pcs }] } }
+  jobEntries: {},          // entries for the currently selected process subtype
+  jobEntriesByProcess: {}, // { [processSubType]: { [jobId]: { bags: [...] } } }
   otherBags: [],
   isProcessing: false,
   isComplete: false,
@@ -49,9 +50,21 @@ function engageReducer(state, action) {
     case ACTIONS.SET_LOCKER:
       return { ...state, locker: action.payload };
     case ACTIONS.SET_PROCESS_TYPE:
-      return { ...state, processType: action.payload, processSubType: null };
+      return {
+        ...state,
+        processType: action.payload,
+        processSubType: null,
+        jobEntries: {},
+        jobEntriesByProcess: {},
+      };
     case ACTIONS.SET_PROCESS_SUB_TYPE:
-      return { ...state, processSubType: action.payload };
+      if (state.processSubType === action.payload) return state;
+      return {
+        ...state,
+        processSubType: action.payload,
+        jobEntries: {},
+        jobEntriesByProcess: {},
+      };
     case ACTIONS.SET_MATERIAL_TYPE:
       return { ...state, materialType: action.payload };
     case ACTIONS.ADD_SCANNED_JOB:
@@ -63,19 +76,34 @@ function engageReducer(state, action) {
       return { ...state, requiredBags: action.payload };
     case ACTIONS.ADD_SCANNED_BAG:
       if (state.scannedBags.find(b => b.id === action.payload.id)) return state;
-      return { ...state, scannedBags: [...state.scannedBags, action.payload] };
-    case ACTIONS.REMOVE_SCANNED_BAG:
-      return { ...state, scannedBags: state.scannedBags.filter(b => b.id !== action.payload) };
-    case ACTIONS.SET_SCANNED_JOBS:
-      return { ...state, scannedJobs: action.payload };
-    case ACTIONS.UPDATE_JOB_ENTRY:
       return {
         ...state,
-        jobEntries: {
-          ...state.jobEntries,
-          [action.payload.jobId]: action.payload.data,
-        },
+        scannedBags: [...state.scannedBags, action.payload],
+        jobEntries: {},
+        jobEntriesByProcess: {},
       };
+    case ACTIONS.REMOVE_SCANNED_BAG:
+      return {
+        ...state,
+        scannedBags: state.scannedBags.filter(b => b.id !== action.payload),
+        jobEntries: {},
+        jobEntriesByProcess: {},
+      };
+    case ACTIONS.SET_SCANNED_JOBS:
+      return { ...state, scannedJobs: action.payload };
+    case ACTIONS.UPDATE_JOB_ENTRY: {
+      const jobEntries = {
+        ...state.jobEntries,
+        [action.payload.jobId]: action.payload.data,
+      };
+      return {
+        ...state,
+        jobEntries,
+        jobEntriesByProcess: state.processSubType
+          ? { ...state.jobEntriesByProcess, [state.processSubType]: jobEntries }
+          : state.jobEntriesByProcess,
+      };
+    }
     case ACTIONS.SET_PROCESSING:
       return { ...state, isProcessing: action.payload };
     case ACTIONS.SET_COMPLETE:
@@ -83,20 +111,33 @@ function engageReducer(state, action) {
     case ACTIONS.RESET:
       return { ...initialState };
     case ACTIONS.RESET_BAG_AND_MATERIAL:
-      return { ...state, scannedBags: [], jobEntries: {} };
+      return {
+        ...state,
+        scannedBags: [],
+        jobEntries: {},
+        jobEntriesByProcess: {},
+        otherBags: [],
+      };
 
     case 'ADD_OTHER_BAG':
       if (state.otherBags.find((b) => b.id === action.payload.id)) return state;
-      return { ...state, otherBags: [...state.otherBags, action.payload] };
+      return {
+        ...state,
+        otherBags: [...state.otherBags, action.payload],
+        jobEntries: {},
+        jobEntriesByProcess: {},
+      };
 
     case 'CLEAR_OTHER_BAGS':
-      return { ...state, otherBags: [] };
-
-    case ACTIONS.RESET_BAG_AND_MATERIAL:
-      return { ...state, scannedBags: [], jobEntries: {}, otherBags: [] };
+      return { ...state, otherBags: [], jobEntries: {}, jobEntriesByProcess: {} };
 
     case 'REMOVE_OTHER_BAG':
-      return { ...state, otherBags: state.otherBags.filter(b => b.id !== action.payload) };
+      return {
+        ...state,
+        otherBags: state.otherBags.filter(b => b.id !== action.payload),
+        jobEntries: {},
+        jobEntriesByProcess: {},
+      };
 
     default:
       return state;

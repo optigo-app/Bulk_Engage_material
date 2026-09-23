@@ -8,7 +8,7 @@ import Button from '@mui/material/Button';
 import { useGlobalScanner } from '../../../hooks/useGlobalScanner';
 
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
-import { sumSavedBagCwt, getJobInfo } from '../../../Utils/globalFunc';
+import { sumSavedBagCwt, getJobInfo, getRemainingBagStock, getSavedBagUsage } from '../../../Utils/globalFunc';
 import { materialTypeItemIds, toMaterialTypeList, materialTypeLabel } from '../../../Utils/materialTypes';
 import defaultJobImg from '../../../images/default.jpg';
 import ScannerInput from '../../../components/ScannerInput/ScannerInput';
@@ -316,6 +316,25 @@ const SingleBulkEntry = ({ state, actions }) => {
     return null;
   };
 
+  const validateOtherBagStock = (bagRecord) => {
+    if (materials.some((m) => norm(m.assignedBag) === norm(bagRecord.rfbag))) {
+      return `Bag "${bagRecord.rfbag}" is already added to this job.`;
+    }
+    const remaining = getRemainingBagStock(
+      state.jobEntries,
+      bagRecord.rfbag,
+      bagRecord.pcs,
+      bagRecord.wt,
+      activeJob?.id
+    );
+    if (remaining.pcs <= 0 || remaining.cwt <= 0) {
+      return `Bag "${bagRecord.rfbag}" is fully used. No PCS / CWT remains.`;
+    }
+    bagRecord.pcs = remaining.pcs;
+    bagRecord.wt = remaining.cwt;
+    return '';
+  };
+
   const handleModalBagScan = () => {
     const val = modalScanValue.trim();
     if (!val) return;
@@ -350,6 +369,13 @@ const SingleBulkEntry = ({ state, actions }) => {
         setModalScanValue('');
         return;
       }
+    }
+
+    const stockError = validateOtherBagStock(bagRecord);
+    if (stockError) {
+      setModalError(stockError);
+      setModalScanValue('');
+      return;
     }
 
     // ── Find a pending (unassigned) material row whose spec matches this bag ──
@@ -476,6 +502,12 @@ const SingleBulkEntry = ({ state, actions }) => {
         setModalError(`Bag "${bagRecord.rfbag}" belongs to "${allBagFull?.istoreCust_CustName || 'another customer'}" — not allowed for these jobs.`);
         return;
       }
+    }
+
+    const stockError = validateOtherBagStock(bagRecord);
+    if (stockError) {
+      setModalError(stockError);
+      return;
     }
 
     const matchIdx = materials.findIndex((m) => !m.assignedBag && bagMatchesMaterialRow(bagRecord, m));
@@ -729,7 +761,18 @@ const SingleBulkEntry = ({ state, actions }) => {
         if (bag.iscompany === 1 || bag.iscompany === undefined) return true;
         return jobCcode !== '' && norm(bag.istoreCust_Customercode || '') === jobCcode;
       })
-      .map((bag) => {
+      .map((bag) => ({
+        bag,
+        remaining: getRemainingBagStock(
+          state.jobEntries,
+          bag.rfbag,
+          bag.rempcs ?? bag.pcs ?? 0,
+          bag.remwt ?? bag.wt ?? 0,
+          val
+        ),
+      }))
+      .filter(({ remaining }) => remaining.pcs > 0 && remaining.cwt > 0)
+      .map(({ bag, remaining }) => {
         const baseName = bag.itemid === 3 ? 'DIAMOND'
           : bag.itemid === 4 ? 'COLORSTONE'
             : bag.itemid === 5 ? 'FINDING' : 'MISC';
@@ -756,8 +799,8 @@ const SingleBulkEntry = ({ state, actions }) => {
           requiredBagRfbag: null,
           matchedBag: {
             rfbag: bag.rfbag,
-            availPcs: bag.rempcs ?? 0,
-            availWt: bag.remwt ?? 0,
+            availPcs: remaining.pcs,
+            availWt: remaining.cwt,
             iscompany: bag.iscompany,
           },
           assignedBag: bag.rfbag,
@@ -792,9 +835,19 @@ const SingleBulkEntry = ({ state, actions }) => {
       if (i !== idx) return m;
       if (m.engagedLocked) return m;
       const updated = { ...m, [field]: value };
-      // Only CWT (weight) is capped, and the cap is the bag's TOTAL available
-      // weight minus whatever is already committed to that same bag on other
-      // rows of this job and on every other saved job. PCS is not capped.
+      if (field === 'pcs' && m.matchedBag) {
+        const avail = m.matchedBag.availPcs ?? 0;
+        const rfbag = m.assignedBag;
+        const savedUsed = getSavedBagUsage(state.jobEntries, rfbag, activeJob?.id).pcs;
+        let otherRowsUsed = 0;
+        prev.forEach((mm, j) => {
+          if (j !== idx && rfbag && norm(mm.assignedBag) === norm(rfbag)) {
+            otherRowsUsed += parseFloat(mm.pcs) || 0;
+          }
+        });
+        const remaining = avail - savedUsed - otherRowsUsed;
+        updated.pcsError = avail > 0 && (parseFloat(value) || 0) > remaining + 1e-6;
+      }
       if (field === 'cwt' && m.matchedBag) {
         const avail = m.matchedBag.availWt ?? 0;
         const rfbag = m.assignedBag;

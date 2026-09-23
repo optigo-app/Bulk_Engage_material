@@ -254,7 +254,13 @@ const BagScanning = () => {
 
       state.scannedBags.forEach((bag) => {
         if (restored[bag.id]) return; // already have it, skip
-        const saved = savedBagData.find((b) => b.rfbag === bag.rfbag);
+        const saved = savedBagData.find((b) =>
+          b.rfbag === bag.rfbag &&
+          String(b.qid ?? '') === String(bag.qid ?? '') &&
+          String(b.jid ?? '') === String(bag.jid ?? '') &&
+          String(b.SerialJobNo ?? '').trim().toUpperCase() ===
+            String(bag.SerialJobNo ?? '').trim().toUpperCase()
+        );
         restored[bag.id] = {
           pcs: saved?.scannedPcs ?? (bag.rempcs !== undefined ? String(bag.rempcs) : ''),
           cwt: saved?.scannedCwt ?? (bag.remwt !== undefined ? String(bag.remwt) : ''),

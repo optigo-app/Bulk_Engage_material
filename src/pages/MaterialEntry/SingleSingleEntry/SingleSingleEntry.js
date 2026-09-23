@@ -9,7 +9,7 @@ import ScannerInput from '../../../components/ScannerInput/ScannerInput';
 import { useGlobalScanner } from '../../../hooks/useGlobalScanner';
 import './SingleSingleEntry.scss';
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
-import { getJobInfo } from '../../../Utils/globalFunc';
+import { getJobInfo, getRemainingBagStock } from '../../../Utils/globalFunc';
 import defaultJobImg from '../../../images/default.jpg';
 
 
@@ -260,7 +260,7 @@ const SingleSingleEntry = ({ state, actions }) => {
   };
 
 
-  const getOtherBagLinesForJob = (serialJobNo, otherBags, ScannedJobList, excludeRfbags) => {
+  const getOtherBagLinesForJob = (serialJobNo, otherBags, ScannedJobList, excludeRfbags, jobEntries) => {
     const jobInfo = ScannedJobList.find((j) => norm(j.serialjobno) === norm(serialJobNo));
     const jobCcode = norm(jobInfo?.ccode || '');
 
@@ -270,7 +270,18 @@ const SingleSingleEntry = ({ state, actions }) => {
         if (bag.iscompany === 1 || bag.iscompany === undefined) return true;
         return jobCcode !== '' && norm(bag.istoreCust_Customercode || '') === jobCcode;
       })
-      .map((bag, idx) => ({
+      .map((bag) => ({
+        bag,
+        remaining: getRemainingBagStock(
+          jobEntries,
+          bag.rfbag,
+          bag.rempcs ?? bag.pcs ?? 0,
+          bag.remwt ?? bag.wt ?? 0,
+          serialJobNo
+        ),
+      }))
+      .filter(({ remaining }) => remaining.pcs > 0 && remaining.cwt > 0)
+      .map(({ bag, remaining }, idx) => ({
         lineKey: `otherbag-${norm(bag.rfbag)}-${idx}`,
         itemid: bag.itemid,
         material: bag.type || getItemLabel(bag.itemid),
@@ -293,8 +304,8 @@ const SingleSingleEntry = ({ state, actions }) => {
           size: bag.size,
           color_name: bag.color_name,
           LockerName: bag.LockerName || '',
-          stockPcs: bag.rempcs ?? 0,
-          stockWt: bag.remwt ?? 0,
+          stockPcs: remaining.pcs,
+          stockWt: remaining.cwt,
           iscompany: bag.iscompany,
         },
         entry: null,
@@ -516,15 +527,12 @@ const SingleSingleEntry = ({ state, actions }) => {
         .map(norm)
     );
 
-    // FIX: other bags ke liye sirf is job ke already-assigned bags exclude karo
-    const usedElsewhere = getUsedBagRfbags(state.jobEntries);
-    const excludeForThisJob = new Set([...alreadyAssignedRfbags, ...usedElsewhere]);
-
     const otherBagLines = getOtherBagLinesForJob(
       val,
       state.otherBags,
       ScannedJobList,
-      alreadyAssignedRfbags  // ← sirf is job ke assigned bags exclude karo
+      alreadyAssignedRfbags,
+      state.jobEntries
     );
 
     const allLines = [...withAutoMatch, ...extraLines, ...otherBagLines];
@@ -664,6 +672,34 @@ const SingleSingleEntry = ({ state, actions }) => {
       return;
     }
 
+    const duplicateLine = materialLines.find((line) =>
+      line.lineKey !== activeLine?.lineKey &&
+      norm(line.assignedBag?.rfbag) === norm(rawBag.rfbag)
+    );
+    if (duplicateLine) {
+      setAssignError(`Bag "${rawBag.rfbag}" is already added to this job.`);
+      setAssignScanValue('');
+      assignInputRef.current?.focus();
+      return;
+    }
+
+    const totalPcs = rawBag.rempcs ?? rawBag.pcs ?? Number(rawBag.scannedPcs ?? 0);
+    const totalWt = rawBag.remwt ?? rawBag.wt ?? Number(rawBag.scannedCwt ?? 0);
+    const remaining = getRemainingBagStock(
+      state.jobEntries,
+      rawBag.rfbag,
+      totalPcs,
+      totalWt,
+      activeJob.id,
+      activeLine?.lineKey
+    );
+    if (remaining.pcs <= 0 || remaining.cwt <= 0) {
+      setAssignError(`Bag "${rawBag.rfbag}" is fully used. No PCS / CWT remains.`);
+      setAssignScanValue('');
+      assignInputRef.current?.focus();
+      return;
+    }
+
     const bagObj = {
       rfbag: rawBag.rfbag,
       itemid: rawBag.itemid,
@@ -674,8 +710,8 @@ const SingleSingleEntry = ({ state, actions }) => {
       findingtypename: rawBag.findingtypename || '',
       findingAccessories: rawBag.findingAccessories || '',
       LockerName: rawBag.LockerName || '',
-      stockPcs: rawBag.rempcs ?? rawBag.pcs ?? Number(rawBag.scannedPcs ?? 0),
-      stockWt: rawBag.remwt ?? rawBag.wt ?? Number(rawBag.scannedCwt ?? 0),
+      stockPcs: remaining.pcs,
+      stockWt: remaining.cwt,
       iscompany: rawBag.iscompany,
     };
 
@@ -1306,6 +1342,10 @@ const SingleSingleEntry = ({ state, actions }) => {
                             onChange={(e) => {
                               const val = e.target.value;
                               setPcsValue(val);
+                              const avail = activeLine?.assignedBag?.stockPcs ?? null;
+                              if (avail !== null && (parseFloat(val) || 0) > avail) {
+                                setPcsError(`Max ${avail} pcs available`);
+                              } else { setPcsError(''); }
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter')

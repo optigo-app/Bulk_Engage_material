@@ -13,19 +13,49 @@ const normBag = (s) => String(s ?? '').trim().toUpperCase();
  * @param {string|null} excludeJobId  a job key to skip (the one being edited,
  *                                     so its in-progress rows aren't double counted)
  */
-export const sumSavedBagCwt = (jobEntries, rfbag, excludeJobId = null) => {
-  if (!rfbag) return 0;
+export const getSavedBagUsage = (
+  jobEntries,
+  rfbag,
+  excludeJobId = null,
+  excludeLineKey = null
+) => {
+  if (!rfbag) return { pcs: 0, cwt: 0 };
   const target = normBag(rfbag);
-  let total = 0;
+  let pcs = 0;
+  let cwt = 0;
   Object.entries(jobEntries || {}).forEach(([jobId, je]) => {
-    if (excludeJobId != null && normBag(jobId) === normBag(excludeJobId)) return;
     (je?.bags || []).forEach((b) => {
+      if (
+        excludeJobId != null &&
+        normBag(jobId) === normBag(excludeJobId) &&
+        (excludeLineKey == null || b.lineKey === excludeLineKey || b.rowKey === excludeLineKey)
+      ) return;
       const bagRf = b.rfbag ?? b.assignedBag;
-      if (bagRf && normBag(bagRf) === target) total += Number(b.wt) || 0;
+      if (!bagRf || normBag(bagRf) !== target) return;
+      pcs += Number(b.pcs) || 0;
+      cwt += Number(b.wt ?? b.cwt) || 0;
     });
   });
-  return total;
+  return { pcs, cwt };
 };
+
+export const getRemainingBagStock = (
+  jobEntries,
+  rfbag,
+  totalPcs,
+  totalCwt,
+  excludeJobId = null,
+  excludeLineKey = null
+) => {
+  const used = getSavedBagUsage(jobEntries, rfbag, excludeJobId, excludeLineKey);
+  return {
+    pcs: Math.max(0, (Number(totalPcs) || 0) - used.pcs),
+    cwt: Math.max(0, (Number(totalCwt) || 0) - used.cwt),
+  };
+};
+
+export const sumSavedBagCwt = (jobEntries, rfbag, excludeJobId = null) =>
+  getSavedBagUsage(jobEntries, rfbag, excludeJobId).cwt;
 
 /**
  * Resolve the display info for a job number. The scanned-job list (session)

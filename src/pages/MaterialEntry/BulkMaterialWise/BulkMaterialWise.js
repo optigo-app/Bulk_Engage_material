@@ -13,7 +13,7 @@ import { useGlobalScanner } from '../../../hooks/useGlobalScanner';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import './BulkMaterialWise.scss';
 import { getMaster, isMasterKey } from '../../../Utils/masterStore';
-import { getJobInfo } from '../../../Utils/globalFunc';
+import { getJobInfo, getRemainingBagStock } from '../../../Utils/globalFunc';
 import { materialTypeItemIds } from '../../../Utils/materialTypes';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
 const FILTERS = ['ALL', 'Diamond', 'Colorstone', 'Finding', 'MISC'];
 
 // ─── Add Material Modal ───────────────────────────────────────────────────────
-const AddMaterialModal = ({ onAdd, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName }) => {
+const AddMaterialModal = ({ onAdd, onClose, scannedBags, AllBagListData, scannedJobList, selectedLockerName, validateBag }) => {
   const [val, setVal] = useState('');
   const [error, setError] = useState('');
   const [found, setFound] = useState(null);
@@ -270,6 +270,12 @@ const AddMaterialModal = ({ onAdd, onClose, scannedBags, AllBagListData, scanned
       }
       if ((bag.pcs ?? 0) <= 0 || (Number(bag.wt) ?? 0) <= 0) {
         setError(`Bag "${bag.rfbag}" has no stock available (${bag.pcs ?? 0} pcs / ${Number(bag.wt ?? 0).toFixed(3)} ctw) — cannot add.`);
+        setFound(null);
+        return;
+      }
+      const validationError = validateBag?.(bag) || '';
+      if (validationError) {
+        setError(validationError);
         setFound(null);
         return;
       }
@@ -681,10 +687,46 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
           // Clear any stale error since value is always within limit now
           setInputErrors((pe) => ({ ...pe, [`${rowKey}-cwt`]: false }));
         }
+      } else if (field === 'pcs') {
+        const row = rows.find((r) => r.rowKey === rowKey);
+        const bag = row?.matchedBag || row?.manualBag;
+        if (bag) {
+          let otherUsed = 0;
+          rows.forEach((r) => {
+            if (r.rowKey === rowKey) return;
+            const rb = r.matchedBag || r.manualBag;
+            if (rb && norm(rb.rfbag) === norm(bag.rfbag)) {
+              otherUsed += parseFloat(prev[r.rowKey]?.pcs) || 0;
+            }
+          });
+          const remaining = Math.max(0, (Number(bag.pcs) || 0) - otherUsed);
+          const entered = parseFloat(val) || 0;
+          if (entered > remaining) sanitizedVal = String(remaining);
+          setInputErrors((pe) => ({ ...pe, [`${rowKey}-pcs`]: false }));
+        }
       }
 
       return { ...prev, [rowKey]: { ...prev[rowKey], [field]: sanitizedVal } };
     });
+  };
+
+  const validateOtherBag = (bag) => {
+    if (rows.some((row) => norm((row.matchedBag || row.manualBag)?.rfbag) === norm(bag.rfbag))) {
+      return `Bag "${bag.rfbag}" is already added.`;
+    }
+    const remaining = getRemainingBagStock(
+      state.jobEntries,
+      bag.rfbag,
+      bag.pcs,
+      bag.wt,
+      'bulk-material'
+    );
+    if (remaining.pcs <= 0 || remaining.cwt <= 0) {
+      return `Bag "${bag.rfbag}" is fully used. No PCS / CWT remains.`;
+    }
+    bag.pcs = remaining.pcs;
+    bag.wt = remaining.cwt;
+    return '';
   };
 
   // Add material from modal
@@ -1095,6 +1137,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
           AllBagListData={AllBagListData}
           scannedJobList={ScannedJobList}
           selectedLockerName={state.locker?.name || ''}
+          validateBag={validateOtherBag}
         />
       )}
       {returnModal && (

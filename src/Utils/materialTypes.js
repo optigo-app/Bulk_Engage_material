@@ -37,7 +37,7 @@ export const materialTypeItemIds = (materialType) => {
 // Does a material/engaged row pass the current material-type selection?
 export const materialTypeFilter = (row, materialType) => {
   const allowed = materialTypeItemIds(materialType);
-  return !allowed || allowed.includes(row.itemid);
+  return !allowed || allowed.includes(Number(row.itemid));
 };
 
 // Bag records carry a string `type` ("Diamond", "Diamond:S", "Colorstone:G",

@@ -316,7 +316,7 @@ const Summary = () => {
           endIcon={<ArrowRight size={20} />}
           className="summary__continue-btn"
         >
-          Save &amp; Process
+          Save &amp; Continue
         </Button>
       </div>
 
