@@ -315,7 +315,7 @@ const SingleSingleEntry = ({ state, actions }) => {
   };
 
   const handleJobScan = (rawVal) => {
-    const val = (rawVal ?? jobScanValue).trim();
+    const val = (typeof rawVal === 'string' ? rawVal : jobScanValue).trim();
     if (!val) return;
     setJobScanValue(val);
     setJobError('');
@@ -1052,7 +1052,8 @@ const SingleSingleEntry = ({ state, actions }) => {
                             ? 'default'
                             : isSelectable
                               ? 'pointer'
-                              : ''
+                              : '',
+                          backgroundColor: line.isOtherBagAuto && '#feeac6'
                         }}
                       >
                         {isSaved

@@ -190,10 +190,10 @@ const buildMergedRows = (ScannedMaterials, scannedJobs, ScannedBags, materialTyp
 
     const row = map.get(key);
     row.reqPcs += line.pcs || 0;
-    row.reqWt  += line.wt  || 0;
+    row.reqWt += line.wt || 0;
     // ↓ ADD these two lines
     row.reqPcsPerJob[line.SerialJobNo] = (row.reqPcsPerJob[line.SerialJobNo] || 0) + (line.pcs || 0);
-    row.reqWtPerJob[line.SerialJobNo]  = (row.reqWtPerJob[line.SerialJobNo]  || 0) + (line.wt  || 0);
+    row.reqWtPerJob[line.SerialJobNo] = (row.reqWtPerJob[line.SerialJobNo] || 0) + (line.wt || 0);
     row.jobNos.push(line.SerialJobNo);
     row.qids.push(line.qid);
     row.jids.push(line.jid);
@@ -217,7 +217,7 @@ const AddMaterialModal = ({ onAdd, onClose, scannedBags, AllBagListData, scanned
   useEffect(() => { ref.current?.focus(); }, []);
 
   const check = (rawVal) => {
-    const t = (rawVal ?? val).trim();
+    const t = typeof rawVal === 'string' ? rawVal : val;
     if (!t) return;
     setVal(t);
     let bag = findBagById(t, scannedBags);

@@ -587,8 +587,7 @@ const SingleBulkEntry = ({ state, actions }) => {
   // Job scan
   // ─────────────────────────────────────────────────────────────
   const handleJobScan = (rawVal) => {
-    const val = (rawVal ?? jobScanValue).trim();
-    if (!val) return;
+    const val = (typeof rawVal === 'string' ? rawVal : jobScanValue).trim(); if (!val) return;
     setJobScanValue(val);
 
     // Auto-save the currently active job before switching to a new one.
@@ -599,16 +598,64 @@ const SingleBulkEntry = ({ state, actions }) => {
     }
 
     const existingSave = savedJobs.find((s) => norm(s.jobId) === norm(val));
+    // In handleJobScan, find the existingSave branch:
+    // ✅ FIX — re-hydrate matchedBag stock from live ScannedBags/AllBagListData for extra rows
     if (existingSave) {
       setJobError('');
       const jobInfo = getJobInfo(val, ScannedJobList);
       setActiveJob({
-        id: val, locked: true, imagepath: jobInfo?.imagepath ?? null, Designno: jobInfo?.design,
-        Serialfor: jobInfo?.category, customerCode: jobInfo?.ccode,
-        CurrentStatus: jobInfo?.status,
-        metal: jobInfo?.metal, metalColor: jobInfo?.color
+        id: val, locked: true, imagepath: jobInfo?.imagepath ?? null,
+        Designno: jobInfo?.design, Serialfor: jobInfo?.category,
+        customerCode: jobInfo?.ccode, CurrentStatus: jobInfo?.status,
+        metal: jobInfo?.metal, metalColor: jobInfo?.color,
       });
-      setMaterials(existingSave.materials);
+
+      const freshRows = buildMaterialRows(
+        val, state.materialType,
+        ScannedMaterials, ScannedBags,
+        state.requiredBags, state.scannedBags
+      );
+
+      // Merge saved pcs/cwt back onto fresh rows (live bag stock)
+      const mergedRows = freshRows.map((row) => {
+        const saved = existingSave.materials.find(
+          (s) => s.qid === row.qid && s.jid === row.jid
+        );
+        if (!saved) return row;
+        return {
+          ...row,
+          pcs: saved.pcs ?? row.pcs,
+          cwt: saved.cwt ?? row.cwt,
+          engagedLocked: saved.engagedLocked ?? false,
+          txnid: saved.txnid ?? row.txnid,
+        };
+      });
+
+      // Extra rows (Other Bag / extra engaged) — re-hydrate matchedBag from live data
+      const extraRows = existingSave.materials
+        .filter((s) => !freshRows.some((r) => r.qid === s.qid && r.jid === s.jid))
+        .map((s) => {
+          if (!s.assignedBag) return s; // no bag → nothing to re-hydrate
+          // Look up live stock from ScannedBags first, then AllBagListData
+          const liveBag =
+            ScannedBags.find((b) => norm(b.rfbag) === norm(s.assignedBag)) ||
+            AllBagListData.find((b) => norm(b.rfbag) === norm(s.assignedBag));
+          if (!liveBag) return s;
+          const liveAvailPcs = liveBag.scannedPcs ?? liveBag.rempcs ?? liveBag.pcs ?? 0;
+          const liveAvailWt = liveBag.scannedCwt ?? liveBag.remwt ?? liveBag.wt ?? 0;
+          return {
+            ...s,
+            matchedBag: {
+              ...(s.matchedBag ?? {}),
+              rfbag: liveBag.rfbag,
+              availPcs: liveAvailPcs,
+              availWt: liveAvailWt,
+              iscompany: liveBag.iscompany ?? s.matchedBag?.iscompany,
+            },
+          };
+        });
+
+      setMaterials([...mergedRows, ...extraRows]);
       setJobScanValue('');
       return;
     }
@@ -989,10 +1036,9 @@ const SingleBulkEntry = ({ state, actions }) => {
     });
     return avail - savedUsed - otherUsed;
   };
-
+  
   useGlobalScanner(jobInputRef, handleJobScan);
 
-  // ─────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: 0 }}>
       <div className="sbe-wrap">
@@ -1083,6 +1129,7 @@ const SingleBulkEntry = ({ state, actions }) => {
                   </div>
                 ) : (
                   sortedMaterials.map((mat, idx) => {
+                    console.log('mat: ', mat);
                     const has = !!mat.assignedBag;
                     const isEngagedLocked = mat.engagedLocked && has;
                     const noBagBlocked = !has && mat.requiredBagNotScanned;
@@ -1099,9 +1146,9 @@ const SingleBulkEntry = ({ state, actions }) => {
                           has ? 'sbe-table__row--ok' : 'sbe-table__row--pend',
                           noBagBlocked ? 'sbe-table__row--not-scanned' : '',
                         ].filter(Boolean).join(' ')}
-                      // Rows are display-only now — bag assignment happens
-                      // only via the global "Add Other Bag" modal, which
-                      // auto-matches by item / shape / quality / color / size.
+                        style={{
+                          backgroundColor: mat.isUnusedBag ? '#feeac6' : undefined
+                        }}
                       >
                         <span className="sbe-col sbe-col--no sbe-idx">{idx + 1}</span>
 

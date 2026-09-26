@@ -111,15 +111,6 @@ const matColor = (item = '') => {
   return '#607d8b';
 };
 
-const matIcon = (item = '', size = 12) => {
-  const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:G')) return <Stone size={size} />;
-  if (u.includes('DIAMOND')) return <Gem size={size} />;
-  if (u.includes('COLORSTONE')) return <Palette size={size} />;
-  if (u.includes('FINDING') || u.includes('MISC')) return <Wrench size={size} />;
-  return <Package size={size} />;
-};
-
 const matLabel = (item = '') => {
   const u = item.toUpperCase();
   if (u.includes('DIAMOND:S')) return 'Diamond:S';
@@ -445,7 +436,10 @@ const MatRow = ({ sr, row, inputVals, locked, inputErrors, engagedLocked, onInpu
       bag ? 'bse-tr--bag' : 'bse-tr--nobag',
       noBagBlocked ? 'bse-tr--not-scanned' : '',
       isUnlocked ? 'bse-tr--unlocked' : '',
-    ].filter(Boolean).join(' ')}>
+    ].filter(Boolean).join(' ')}
+      style={{
+        backgroundColor: row.isOtherBag && '#feeac6'
+      }}>
       <td className="bse-td bse-td--sr">{sr}</td>
       <td className="bse-td bse-td--mat">
         <span className="bse-mat" style={{ color }}>{row.MaterialTypeName || matLabel(row.item)}</span>
@@ -651,11 +645,13 @@ const ReturnModal = ({ jobId, rows, inputs, onSave, onUnlock, onClose }) => {
               {rows.map((row, idx) => {
                 const bag = row.matchedBag || row.manualBag;
                 return (
-                  <tr key={row.rowKey} className="bse-tr">
+                  <tr key={row.rowKey} className="bse-tr"
+
+                  >
                     <td className="bse-td bse-td--sr">{idx + 1}</td>
                     <td className="bse-td bse-td--mat">
                       <span className="bse-mat" style={{ color: matColor(row.item) }}>
-                        {matIcon(row.item)}{matLabel(row.item)}
+                        {matLabel(row.item)}
                       </span>
                     </td>
                     <td className="bse-td bse-td--desc">

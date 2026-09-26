@@ -54,14 +54,6 @@ const matColor = (item = '') => {
   return '#ff9800';
 };
 
-const matIcon = (item = '', size = 13) => {
-  const u = item.toUpperCase();
-  if (u.includes('DIAMOND:S') || u.includes('COLORSTONE:G')) return <Stone size={size} />;
-  if (u.includes('DIAMOND')) return <Gem size={size} />;
-  if (u.includes('COLORSTONE')) return <Palette size={size} />;
-  if (u.includes('FINDING')) return <Wrench size={size} />;
-  return <Package size={size} />;
-};
 
 const matLabel = (item = '') => {
   const u = item.toUpperCase();
@@ -720,7 +712,7 @@ const JobVerification = () => {
                         <td className="bse-td bse-td--sr">{idx + 1}</td>
                         <td className="bse-td bse-td--mat">
                           <span className="bse-mat" style={{ color: matColor(item) }}>
-                            {matIcon(item)}{r.MaterialTypeName || matLabel(item)}
+                            {r.MaterialTypeName || matLabel(item)}
                           </span>
                         </td>
                         <td className="bse-td bse-td--desc">{spec || '—'}</td>

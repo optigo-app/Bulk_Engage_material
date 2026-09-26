@@ -486,7 +486,8 @@ const ScanJobs = () => {
                 {verificationResult.validJobs.map((j) => (
                   <div key={j.id} className="scan-jobs__result-row scan-jobs__result-row--valid">
                     <CheckCircle2 size={14} />
-                    <span className="scan-jobs__result-row-id">{j.serialjobno}</span>
+                    <span className="scan-jobs__result-row-id">{j.serialjobno}({j.design})</span>
+                    <span className="scan-jobs__result-row-id">Customer :{j.cname}</span>
                     <span className="scan-jobs__result-row-badge scan-jobs__result-row-badge--valid">Valid</span>
                   </div>
                 ))}
