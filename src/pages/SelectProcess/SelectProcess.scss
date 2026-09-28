@@ -138,8 +138,6 @@
 
     &--focused {
       border-color: var(--primary) !important;
-      background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent) !important;
       transform: translateY(-2px);
     }
 
@@ -253,8 +251,6 @@
 
     &--focused {
       border-color: var(--mat-color, var(--primary)) !important;
-      background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent) !important;
       transform: translateY(-2px);
     }
   }

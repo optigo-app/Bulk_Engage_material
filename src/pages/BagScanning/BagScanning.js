@@ -14,6 +14,7 @@ import {
   Wrench,
   Stone,
   X,
+  ChevronRight,
 } from "lucide-react";
 import Button from "@mui/material/Button";
 import "./BagScanning.scss";
@@ -224,15 +225,23 @@ const buildRequiredBags = () => {
 const BagScanning = () => {
   const navigate = useNavigate();
   const { state, actions } = useEngage();
+  const allowsOtherBags = state.processSubType !== "bulk-bulk";
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState(null);
   const [lastOtherScanned, setLastOtherScanned] = useState(null);
   const [bagData, setBagData] = useState({});
   const [listVisible, setListVisible] = useState(true);
-  const [bagFilter, setBagFilter] = useState("all");
+  const [bagFilter, setBagFilter] = useState("company");
   const [unavailableBags, setUnavailableBags] = useState([]);
   const [availabilityView, setAvailabilityView] = useState("all");
   const [scanMessage, setScanMessage] = useState(null); // { type: 'error', text: '...' }
+  // Per-card expand/collapse: card key -> bool. Undefined/false = collapsed
+  // (single-line summary). Collapsed is the default for every card.
+  const [expandedCards, setExpandedCards] = useState({});
+  const [allExpanded, setAllExpanded] = useState(false);
+  const [jobsCollapsed, setJobsCollapsed] = useState(false);
+  const toggleCardExpanded = (key) =>
+    setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
   const scanMessageTimerRef = useRef(null);
   const alljobdataRef = useRef([]);
   const inputRef = useRef(null);
@@ -259,7 +268,7 @@ const BagScanning = () => {
           String(b.qid ?? '') === String(bag.qid ?? '') &&
           String(b.jid ?? '') === String(bag.jid ?? '') &&
           String(b.SerialJobNo ?? '').trim().toUpperCase() ===
-            String(bag.SerialJobNo ?? '').trim().toUpperCase()
+          String(bag.SerialJobNo ?? '').trim().toUpperCase()
         );
         restored[bag.id] = {
           pcs: saved?.scannedPcs ?? (bag.rempcs !== undefined ? String(bag.rempcs) : ''),
@@ -312,63 +321,6 @@ const BagScanning = () => {
     actions.setRequiredBags(filteredAvailable);
     setUnavailableBags(filteredUnavailable);
     inputRef.current?.focus();
-    // const filteredAvailable = filterByLockerAndType(required.available);
-    // const filteredUnavailable = filterByLockerAndType(required.unavailable);
-
-    // // ── Reconcile dropped material lines ──
-    // // A material line (qid) can have ALL of its matched bags filtered
-    // // out by locker/owner/type (e.g. every bag for "Lobster lock" sits
-    // // in RLocker but the active locker is Locker1). Previously that
-    // // line just vanished from both lists, silently shrinking the
-    // // "All Material" total (10 → 8 in the 1/8477 example). Instead,
-    // // any qid present in required.available but absent from
-    // // filteredAvailable gets demoted into "unavailable" so it still
-    // // counts and is visible to the user (with a reason).
-    // const matchedQidsBeforeFilter = new Set(
-    //   required.available.map((b) => b.qid),
-    // );
-    // const matchedQidsAfterFilter = new Set(filteredAvailable.map((b) => b.qid));
-    // const droppedByLockerFilter = [];
-
-    // matchedQidsBeforeFilter.forEach((qid) => {
-    //   if (!matchedQidsAfterFilter.has(qid)) {
-    //     const sample = required.available.find((b) => b.qid === qid);
-    //     if (sample) {
-    //       droppedByLockerFilter.push({
-    //         id: `na-locker-${qid}`,
-    //         itemid: sample.itemid,
-    //         type: sample.type,
-    //         color: sample.color,
-    //         shape: sample.materialShape,
-    //         quality: sample.materialQuality,
-    //         size: sample.materialSize,
-    //         color_name: sample.materialColor,
-    //         findingtypename: sample.findingtypename || "",
-    //         findingAccessories: sample.findingAccessories || "",
-    //         qid: sample.qid,
-    //         jid: sample.jid,
-    //         SerialJobNo: sample.SerialJobNo,
-    //         QuotationNo: sample.QuotationNo,
-    //         materialWt: sample.materialWt,
-    //         materialPcs: sample.materialPcs,
-    //         materialShape: sample.materialShape,
-    //         materialQuality: sample.materialQuality,
-    //         materialColor: sample.materialColor,
-    //         materialSize: sample.materialSize,
-    //         reason: "no-bag-in-locker",
-    //       });
-    //     }
-    //   }
-    // });
-
-    // const combinedUnavailable = [
-    //   ...filteredUnavailable,
-    //   ...droppedByLockerFilter,
-    // ];
-
-    // actions.setRequiredBags(filteredAvailable);
-    // setUnavailableBags(combinedUnavailable);
-    // inputRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -412,12 +364,15 @@ const BagScanning = () => {
   }, [lastScanned, lastOtherScanned]);
 
   const handleScan = (scannedBag) => {
-    const val = scannedBag ?? scanValue.trim();
+    const val = String(scannedBag ?? scanValue).trim();
     if (!val) return;
+    const normalizedVal = val.toUpperCase();
 
     // ── Find ALL required bags with this rfbag (multiple jobs same bag) ──
-    const matchingBags = state.requiredBags.filter(
-      (b) => b.rfbag === val || b.id === val
+    const matchingBags = state.requiredBags.filter((bag) =>
+      [bag.rfbag, bag.id].some(
+        (value) => String(value ?? '').trim().toUpperCase() === normalizedVal,
+      ),
     );
 
     if (matchingBags.length > 0) {
@@ -447,6 +402,15 @@ const BagScanning = () => {
       }
 
     } else {
+      if (!allowsOtherBags) {
+        setScanMessage({
+          type: 'error',
+          text: `Bag ${val} is not required for the selected jobs. Other bags are not allowed in Material-wise (RM) Entry.`,
+        });
+        setScanValue('');
+        inputRef.current?.focus();
+        return;
+      }
       // existing other-bag logic unchanged...
       const ownership = checkBagOwnership(val);
       if (ownership && ownership.ok === false) {
@@ -570,7 +534,7 @@ const BagScanning = () => {
       materialColor: bag.materialColor,
       materialSize: bag.materialSize,
     }));
-    const scannedOtherBagData = state.otherBags.map((bag) => ({
+    const scannedOtherBagData = (allowsOtherBags ? state.otherBags : []).map((bag) => ({
       rfbag: bag.rfbag || bag.id,
       itemid: bag.itemid,
       IsCenterStone: bag.IsCenterStone ?? 0,
@@ -685,6 +649,17 @@ const BagScanning = () => {
   const progressPct =
     totalBags > 0 ? Math.min((scannedCount / totalBags) * 100, 100) : 0;
 
+  // Whether a material LINE (group of bags, or a single unavailable entry)
+  // is fully scanned — used to drive the green-tick summary state.
+  const isGroupFullyScanned = (group) => {
+    const listedBags = group.bags.filter(
+      (b) => hasRemainingStock(b) || isScanned(b.id),
+    );
+    if (listedBags.length === 0) return false;
+    return listedBags.every((b) => isScanned(b.id));
+  };
+  const fullyScannedLineCount = groupedAvailable.filter(isGroupFullyScanned).length;
+
   const renderAvailableMaterialCard = (group) => {
     const Icon = getItemIcon(group.itemid, isCenterStone(group));
     // Only list bags that still have stock. An already-scanned bag stays
@@ -694,6 +669,9 @@ const BagScanning = () => {
     );
     const scannedInGroup = listedBags.filter((b) => isScanned(b.id));
     const groupJustScanned = listedBags.some((b) => lastScanned === b.id);
+    const groupFullyScanned =
+      listedBags.length > 0 && scannedInGroup.length === listedBags.length;
+    const isExpanded = !!expandedCards[group.key];
 
     return (
       <div
@@ -701,120 +679,160 @@ const BagScanning = () => {
         className={[
           "bag-scanning__bag-card",
           "bag-scanning__bag-card--material",
-          listedBags.length > 0 && scannedInGroup.length === listedBags.length
-            ? "bag-scanning__bag-card--scanned"
-            : "",
+          groupFullyScanned ? "bag-scanning__bag-card--scanned" : "",
           groupJustScanned ? "bag-scanning__bag-card--just-scanned" : "",
         ].join(" ")}
       >
         <div className="bag-scanning__bag-info">
-          <span className="bag-scanning__bag-jobnumber">
-            {Array.from(group.jobs).join(", ")}
-            {"  "}
-            <span className="bag-scanning__bag-type">
+          {/* ── Single-line summary row: always visible ── */}
+          <button
+            type="button"
+            className="bag-scanning__bag-summary-row"
+            onClick={() => toggleCardExpanded(group.key)}
+            aria-expanded={isExpanded}
+          >
+            <span
+              className={[
+                "bag-scanning__bag-expand-caret",
+                isExpanded ? "bag-scanning__bag-expand-caret--open" : "",
+              ].join(" ")}
+            >
+              <ChevronRight size={15} />
+            </span>
+
+            <span className="bag-scanning__bag-jobnumber">
+              {Array.from(group.jobs).join(", ")}
+            </span>
+
+            <span className="bag-scanning__bag-type bag-scanning__bag-type--inline">
               {group.type} · {group.shape} · {group.quality} · {group.color_name} · {group.size}
               {group.findingAccessories ? ` ${group.findingAccessories}` : ""} {group.findingtypename ? ` · ${group.findingtypename}` : ""}
             </span>
-          </span>
 
-          <span className="bag-scanning__bag-meta">
-            Req: {group.materialPcs} pcs /{" "}
-            {group.materialWt} {group.type == "Misc" || group.type == "Finding" ? "gms" : 'ctw'}
-          </span>
+            <span className="bag-scanning__bag-meta bag-scanning__bag-meta--inline">
+              Req: {group.materialPcs} pcs / {group.materialWt}{" "}
+              {group.type == "Misc" || group.type == "Finding" ? "gms" : "ctw"}
+            </span>
 
-          <span className="bag-scanning__bag-chip-list">
-            RM:&nbsp;
-            {listedBags.length === 0 && (
-              <span className="bag-scanning__bag-chip bag-scanning__bag-chip--empty">
-                No stock
-              </span>
-            )}
-            {listedBags.map((bag, idx) => {
-              const scanned = isScanned(bag.id);
-              const justScanned = lastScanned === bag.id;
-              return (
-                <React.Fragment key={bag.id}>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className={[
-                      "bag-scanning__bag-chip",
-                      scanned ? "bag-scanning__bag-chip--scanned" : "",
-                      justScanned ? "bag-scanning__bag-chip--just-scanned" : "",
-                    ].join(" ")}
-                    title={[bag.LockerName, bag.istoreCust_CustName]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    onClick={() => { if (!scanned) handleScan(bag.id); }}
-                    onKeyDown={(e) => {
-                      if ((e.key === "Enter" || e.key === " ") && !scanned)
-                        handleScan(bag.id);
-                    }}
-                  >
-                    {scanned && <CheckCircle2 size={11} />} {bag.rfbag}
-                    {scanned && (
+            <span
+              className={[
+                "bag-scanning__bag-badge",
+                "bag-scanning__bag-badge--scan-progress",
+                "bag-scanning__bag-badge--inline",
+                groupFullyScanned ? "bag-scanning__bag-badge--scan-done" : "",
+              ].join(" ")}
+            >
+              {groupFullyScanned && <CheckCircle2 size={12} />}{" "}
+              {scannedInGroup.length}/{listedBags.length} Scanned
+            </span>
+          </button>
+
+          {/* ── Expandable detail: RM chip list + scanned inputs ── */}
+          <div
+            className={[
+              "bag-scanning__bag-detail-collapse",
+              isExpanded ? "bag-scanning__bag-detail-collapse--open" : "",
+            ].join(" ")}
+          >
+            <div className="bag-scanning__bag-detail-inner">
+              <span className="bag-scanning__bag-chip-list">
+                RM:&nbsp;
+                {listedBags.length === 0 && (
+                  <span className="bag-scanning__bag-chip bag-scanning__bag-chip--empty">
+                    No stock
+                  </span>
+                )}
+                {listedBags.map((bag) => {
+                  const scanned = isScanned(bag.id);
+                  const justScanned = lastScanned === bag.id;
+                  return (
+                    <React.Fragment key={bag.id}>
                       <span
                         role="button"
                         tabIndex={0}
-                        className="bag-scanning__bag-chip-remove"
-                        title="Remove scan"
-                        onClick={(e) => { e.stopPropagation(); handleRemoveScan(bag); }}
+                        className={[
+                          "bag-scanning__bag-chip",
+                          scanned ? "bag-scanning__bag-chip--scanned" : "",
+                          justScanned ? "bag-scanning__bag-chip--just-scanned" : "",
+                        ].join(" ")}
+                        title={[bag.LockerName, bag.istoreCust_CustName]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        onClick={() => { if (!scanned) handleScan(bag.id); }}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.stopPropagation();
-                            handleRemoveScan(bag);
-                          }
+                          if ((e.key === "Enter" || e.key === " ") && !scanned)
+                            handleScan(bag.id);
                         }}
                       >
-                        <X size={11} />
+                        {scanned && (
+                          <CheckCircle2
+                            size={13}
+                            className="bag-scanning__bag-chip-tick"
+                          />
+                        )}
+                        {bag.rfbag}
+                        {scanned && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="bag-scanning__bag-chip-remove"
+                            title="Remove scan"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveScan(bag); }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.stopPropagation();
+                                handleRemoveScan(bag);
+                              }
+                            }}
+                          >
+                            <X size={11} />
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </React.Fragment>
-              );
-            })}
-          </span>
+                    </React.Fragment>
+                  );
+                })}
+              </span>
 
-          {scannedInGroup.length > 0 && (
-            <div className="bag-scanning__bag-inputs-group">
-              {scannedInGroup.map((bag) => (
-                <div className="bag-scanning__bag-inputs" key={bag.id}>
-                  <span className="bag-scanning__bag-inputs-tag">
-                    {bag.rfbag}
-                  </span>
-                  <div className="bag-scanning__bag-field-wrap">
-                    <label>Rem. PCS</label>
-                    <input
-                      type="number"
-                      className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
-                      value={bagData[bag.id]?.pcs ?? ""}
-                      disabled
-                      readOnly
-                    />
-                  </div>
-                  <div className="bag-scanning__bag-field-wrap">
-                    <label>Rem. Wt (ctw)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
-                      value={bagData[bag.id]?.cwt ?? ""}
-                      disabled
-                      readOnly
-                    />
-                  </div>
+              {scannedInGroup.length > 0 && (
+                <div className="bag-scanning__bag-inputs-group">
+                  {scannedInGroup.map((bag) => (
+                    <div className="bag-scanning__bag-inputs" key={bag.id}>
+                      <span className="bag-scanning__bag-inputs-tag">
+                        {bag.rfbag}
+                      </span>
+                      <div className="bag-scanning__bag-field-wrap">
+                        <label>Rem. PCS</label>
+                        <input
+                          type="number"
+                          className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
+                          value={bagData[bag.id]?.pcs ?? ""}
+                          disabled
+                          readOnly
+                        />
+                      </div>
+                      <div className="bag-scanning__bag-field-wrap">
+                        <label>Rem. Wt (ctw)</label>
+                        <input
+                          type="number"
+                          step="0.001"
+                          className="bag-scanning__bag-field bag-scanning__bag-field--disabled"
+                          value={bagData[bag.id]?.cwt ?? ""}
+                          disabled
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         <div className="bag-scanning__bag-status">
           <span className="bag-scanning__bag-badge bag-scanning__bag-badge--available">
             Available ({listedBags.length})
-          </span>
-          <span className="bag-scanning__bag-badge bag-scanning__bag-badge--scan-progress">
-            {scannedInGroup.length}/{listedBags.length} Scanned
           </span>
         </div>
       </div>
@@ -849,11 +867,6 @@ const BagScanning = () => {
           <span className="bag-scanning__bag-badge bag-scanning__bag-badge--not-available">
             Not Available
           </span>
-          {/* <span className="bag-scanning__bag-badge bag-scanning__bag-badge--not-available">
-            {mat.reason === "no-bag-in-locker"
-              ? "Wrong Locker"
-              : "Not Available"}
-          </span> */}
         </div>
       </div>
     );
@@ -862,7 +875,6 @@ const BagScanning = () => {
   return (
     <div className="bag-scanning page-enter">
       <div className="bag-scanning__header">
-        {/* <div className="bag-scanning__step-badge">Step 5</div> */}
         <h1 className="bag-scanning__title">Bag Scanning</h1>
         <p className="bag-scanning__desc">
           Scan the available bags for the scanned jobs
@@ -877,58 +889,34 @@ const BagScanning = () => {
                 <span className="bag-scanning__jobs-context-label">
                   Scanned Jobs
                 </span>
-                <span className="bag-scanning__jobs-count">
-                  <strong>{state.scannedJobs.length}</strong>
-                </span>
-              </div>
-              <div className="bag-scanning__jobs-chips">
-                {state.scannedJobs.map((j, i) => (
-                  <span key={j.id} className="bag-scanning__job-chip">
-                    {j.id}
+                <div className="bag-scanning__jobs-head-actions">
+                  <span className="bag-scanning__jobs-count">
+                    <strong>{state.scannedJobs.length}</strong>
                   </span>
-                ))}
+                  <button
+                    type="button"
+                    className={`bag-scanning__jobs-collapse${jobsCollapsed ? " bag-scanning__jobs-collapse--collapsed" : ""}`}
+                    onClick={() => setJobsCollapsed((collapsed) => !collapsed)}
+                    aria-expanded={!jobsCollapsed}
+                    aria-label={jobsCollapsed ? "Expand scanned jobs" : "Collapse scanned jobs"}
+                  >
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
               </div>
+              {!jobsCollapsed && (
+                <div className="bag-scanning__jobs-chips">
+                  {state.scannedJobs.map((j) => (
+                    <span key={j.id} className="bag-scanning__job-chip">
+                      {j.id}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          <div className="bag-scanning__info-card">
-            <h3>Scan Summary</h3>
-            <div className="bag-scanning__summary-grid">
-              <div className="bag-scanning__summary-item bag-scanning__summary-item--scanned">
-                <span className="bag-scanning__summary-value">
-                  {scannedCount}
-                </span>
-                <span className="bag-scanning__summary-label">Scanned</span>
-              </div>
-              <div className="bag-scanning__summary-item bag-scanning__summary-item--required">
-                <span className="bag-scanning__summary-value">
-                  {combinedMaterials.length}
-                </span>
-                <span className="bag-scanning__summary-label">AllMaterial</span>
-              </div>
-              <div className="bag-scanning__summary-item bag-scanning__summary-item--missing">
-                <span className="bag-scanning__summary-value">
-                  {unavailableBags.length}
-                </span>
-                <span className="bag-scanning__summary-label">Missing</span>
-              </div>
-              <div className="bag-scanning__summary-item bag-scanning__summary-item--extra">
-                <span className="bag-scanning__summary-value">
-                  {extraCount}
-                </span>
-                <span className="bag-scanning__summary-label">Extra</span>
-              </div>
-            </div>
-            <div className="bag-scanning__progress-bar">
-              <div
-                className="bag-scanning__progress-fill"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <div className="bag-scanning__progress-label">
-              {scannedCount}/{totalBags} bags scanned
-            </div>
-          </div>
+
 
           <div className="bag-scanning__scan-area">
             <div className="bag-scanning__scan-frame">
@@ -980,147 +968,215 @@ const BagScanning = () => {
               <span>Verify job selection or check bag data.</span>
             </div>
           )}
+
+          {/* <div className="bag-scanning__info-card">
+            <h3>Scan Summary</h3>
+            <div className="bag-scanning__summary-grid">
+              <div className="bag-scanning__summary-item bag-scanning__summary-item--scanned">
+                <span className="bag-scanning__summary-value">
+                  {scannedCount}
+                </span>
+                <span className="bag-scanning__summary-label">Scanned</span>
+              </div>
+              <div className="bag-scanning__summary-item bag-scanning__summary-item--required">
+                <span className="bag-scanning__summary-value">
+                  {combinedMaterials.length}
+                </span>
+                <span className="bag-scanning__summary-label">AllMaterial</span>
+              </div>
+              <div className="bag-scanning__summary-item bag-scanning__summary-item--missing">
+                <span className="bag-scanning__summary-value">
+                  {unavailableBags.length}
+                </span>
+                <span className="bag-scanning__summary-label">Missing</span>
+              </div>
+              <div className="bag-scanning__summary-item bag-scanning__summary-item--extra">
+                <span className="bag-scanning__summary-value">
+                  {extraCount}
+                </span>
+                <span className="bag-scanning__summary-label">Extra</span>
+              </div>
+            </div>
+            <div className="bag-scanning__progress-bar">
+              <div
+                className="bag-scanning__progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <div className="bag-scanning__progress-label">
+              {scannedCount}/{totalBags} bags scanned
+            </div>
+          </div> */}
         </div>
 
         <div className="bag-scanning__right">
-          <div className="bag-scanning__section">
-            <div className="bag-scanning__filter-pills">
-              {["all", "available", "unavailable"].map((v) => (
-                <button
-                  key={v}
-                  className={[
-                    "bag-scanning__filter-pill",
-                    availabilityView === v
-                      ? "bag-scanning__filter-pill--active"
-                      : "",
-                  ].join(" ")}
-                  onClick={() => setAvailabilityView(v)}
-                >
-                  {v === "all"
-                    ? `All Material (${combinedMaterials.length})`
-                    : v === "available"
-                      ? `Available (${groupedAvailable.length})`
-                      : `Not Available (${unavailableBags.length})`}
-                </button>
-              ))}
-            </div>
+          <>
+            <div className="bag-scanning__section">
 
-            <div className="bag-scanning__filter-pills">
-              {["all", "company", "customer"].map((f) => (
-                <button
-                  key={f}
-                  className={[
-                    "bag-scanning__filter-pill",
-                    bagFilter === f ? "bag-scanning__filter-pill--active" : "",
-                  ].join(" ")}
-                  onClick={() => setBagFilter(f)}
-                >
-                  {f === "all"
-                    ? "All"
-                    : f === "company"
-                      ? "Company"
-                      : "Customer"}
-                </button>
-              ))}
-            </div>
 
-            <div
-              className={`bag-scanning__bags-list ${listVisible ? "bag-scanning__bags-list--visible" : "bag-scanning__bags-list--hidden"}`}
-            >
-              {availabilityView === "unavailable" ? (
-                unavailableBags.length === 0 ? (
-                  <div className="bag-scanning__empty-list">
-                    <CheckCircle2 size={24} />
-                    <span>All required materials have matching bags.</span>
-                  </div>
-                ) : (
-                  unavailableBags.map(renderUnavailableMaterialCard)
-                )
-              ) : availabilityView === "all" ? (
-                combinedMaterials.length === 0 ? (
+              <div className="bag-scanning__filter-pills">
+                {["all", "available", "unavailable"].map((v) => (
+                  <button
+                    key={v}
+                    className={[
+                      "bag-scanning__filter-pill",
+                      availabilityView === v
+                        ? "bag-scanning__filter-pill--active"
+                        : "",
+                    ].join(" ")}
+                    onClick={() => setAvailabilityView(v)}
+                  >
+                    {v === "all"
+                      ? `All Material (${combinedMaterials.length})`
+                      : v === "available"
+                        ? `Available (${groupedAvailable.length})`
+                        : `Not Available (${unavailableBags.length})`}
+                  </button>
+                ))}
+
+                <div className="bag-scanning__expand-all-row">
+                  <button
+                    type="button"
+                    className="bag-scanning__expand-all-btn"
+                    onClick={() => {
+                      const next = !allExpanded;
+                      setAllExpanded(next);
+                      const allKeys = {};
+                      groupedAvailable.forEach((g) => {
+                        allKeys[g.key] = next;
+                      });
+                      setExpandedCards(allKeys);
+                    }}
+                  >
+                    <ChevronRight
+                      size={14}
+                      className={[
+                        "bag-scanning__expand-all-icon",
+                        allExpanded ? "bag-scanning__expand-all-icon--open" : "",
+                      ].join(" ")}
+                    />
+                    {allExpanded ? "Collapse All" : "Expand All"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bag-scanning__filter-pills">
+                {["all", "company", "customer"].map((f) => (
+                  <button
+                    key={f}
+                    className={[
+                      "bag-scanning__filter-pill",
+                      bagFilter === f ? "bag-scanning__filter-pill--active" : "",
+                    ].join(" ")}
+                    onClick={() => setBagFilter(f)}
+                  >
+                    {f === "all"
+                      ? "All"
+                      : f === "company"
+                        ? "Company"
+                        : "Customer"}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={`bag-scanning__bags-list ${listVisible ? "bag-scanning__bags-list--visible" : "bag-scanning__bags-list--hidden"}`}
+              >
+                {availabilityView === "unavailable" ? (
+                  unavailableBags.length === 0 ? (
+                    <div className="bag-scanning__empty-list">
+                      <CheckCircle2 size={24} />
+                      <span>All required materials have matching bags.</span>
+                    </div>
+                  ) : (
+                    unavailableBags.map(renderUnavailableMaterialCard)
+                  )
+                ) : availabilityView === "all" ? (
+                  combinedMaterials.length === 0 ? (
+                    <div className="bag-scanning__empty-list">
+                      <Package size={24} />
+                      <span>No materials found.</span>
+                    </div>
+                  ) : (
+                    combinedMaterials.map((item) =>
+                      Array.isArray(item.bags)
+                        ? renderAvailableMaterialCard(item)
+                        : renderUnavailableMaterialCard(item),
+                    )
+                  )
+                ) : groupedAvailable.length === 0 ? (
                   <div className="bag-scanning__empty-list">
                     <Package size={24} />
-                    <span>No materials found.</span>
+                    <span>No bags available.</span>
                   </div>
                 ) : (
-                  combinedMaterials.map((item) =>
-                    Array.isArray(item.bags)
-                      ? renderAvailableMaterialCard(item)
-                      : renderUnavailableMaterialCard(item),
-                  )
-                )
-              ) : groupedAvailable.length === 0 ? (
-                <div className="bag-scanning__empty-list">
-                  <Package size={24} />
-                  <span>No bags available.</span>
+                  groupedAvailable.map(renderAvailableMaterialCard)
+                )}
+              </div>
+            </div>
+            {allowsOtherBags && state.otherBags.length > 0 && (
+              <div className="bag-scanning__section bag-scanning__section--others">
+                <div className="bag-scanning__bags-header bag-scanning__bags-header--others">
+                  <h3>
+                    <AlertTriangle size={16} />
+                    &nbsp;Other Bags
+                  </h3>
+                  <span className="bag-scanning__bags-count bag-scanning__bags-count--others">
+                    {state.otherBags.length}
+                  </span>
                 </div>
-              ) : (
-                groupedAvailable.map(renderAvailableMaterialCard)
-              )}
-            </div>
-          </div>
-          {state.otherBags.length > 0 && (
-            <div className="bag-scanning__section bag-scanning__section--others">
-              <div className="bag-scanning__bags-header bag-scanning__bags-header--others">
-                <h3>
-                  <AlertTriangle size={16} />
-                  &nbsp;Other Bags
-                </h3>
-                <span className="bag-scanning__bags-count bag-scanning__bags-count--others">
-                  {state.otherBags.length}
-                </span>
-              </div>
-              <div className="bag-scanning__bags-list">
-                {state?.otherBags.map((bag) => {
-                  const justScanned = lastOtherScanned === bag.id;
-                  const hasDetails = !!bag.shape; // only true when we matched a real bag record
-                  const Icon = hasDetails ? getItemIcon(bag.itemid, isCenterStone(bag)) : PackagePlus;
+                <div className="bag-scanning__bags-list">
+                  {state?.otherBags.map((bag) => {
+                    const justScanned = lastOtherScanned === bag.id;
+                    const hasDetails = !!bag.shape; // only true when we matched a real bag record
+                    const Icon = hasDetails ? getItemIcon(bag.itemid, isCenterStone(bag)) : PackagePlus;
 
-                  return (
-                    <div
-                      key={bag.id}
-                      className={[
-                        "bag-scanning__bag-card",
-                        "bag-scanning__bag-card--other",
-                        justScanned ? "bag-scanning__bag-card--just-scanned-other" : "",
-                      ].join(" ")}
-                    >
-                      <div className="bag-scanning__bag-info">
-                        <span className="bag-scanning__bag-id">{bag.rfbag || bag.id}</span>
+                    return (
+                      <div
+                        key={bag.id}
+                        className={[
+                          "bag-scanning__bag-card",
+                          "bag-scanning__bag-card--other",
+                          justScanned ? "bag-scanning__bag-card--just-scanned-other" : "",
+                        ].join(" ")}
+                      >
+                        <div className="bag-scanning__bag-info">
+                          <span className="bag-scanning__bag-id">{bag.rfbag || bag.id}</span>
 
-                        {hasDetails ? (
-                          <>
-                            <span className="bag-scanning__bag-type">
-                              {bag.type} · {bag.shape} · {bag.quality} · {bag.color_name} · {bag.size}
-                              {bag.findingtypename ? ` · ${bag.findingtypename}` : ""}
-                            </span>
-                            <span className="bag-scanning__bag-meta">
-                              Rem: {bag.rempcs ?? "-"} pcs / {bag.remwt ?? "-"} ctw
-                              {bag.LockerName ? ` · ${bag.LockerName}` : ""}
-                              {bag.istoreCust_CustName ? ` · ${bag.istoreCust_CustName}` : ""}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="bag-scanning__bag-type">Not in required list</span>
-                        )}
+                          {hasDetails ? (
+                            <>
+                              <span className="bag-scanning__bag-type">
+                                {bag.type} · {bag.shape} · {bag.quality} · {bag.color_name} · {bag.size}
+                                {bag.findingtypename ? ` · ${bag.findingtypename}` : ""}
+                              </span>
+                              <span className="bag-scanning__bag-meta">
+                                Rem: {bag.rempcs ?? "-"} pcs / {bag.remwt ?? "-"} ctw
+                                {bag.LockerName ? ` · ${bag.LockerName}` : ""}
+                                {bag.istoreCust_CustName ? ` · ${bag.istoreCust_CustName}` : ""}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="bag-scanning__bag-type">Not in required list</span>
+                          )}
+                        </div>
+
+                        <div className="bag-scanning__bag-status">
+                          <button
+                            className="bag-scanning__bag-chip-remove"
+                            title="Remove"
+                            onClick={() => actions.removeOtherBag(bag.id)}
+                            style={{ border: 'none' }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
                       </div>
-
-                      <div className="bag-scanning__bag-status">
-                        <button
-                          className="bag-scanning__bag-chip-remove"
-                          title="Remove"
-                          onClick={() => actions.removeOtherBag(bag.id)}
-                          style={{border: 'none'}}
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </>
         </div>
       </div>
 

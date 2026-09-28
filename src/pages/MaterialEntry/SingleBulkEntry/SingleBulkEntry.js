@@ -1295,37 +1295,6 @@ const SingleBulkEntry = ({ state, actions }) => {
                   <CheckCircle2 size={12} /> {modalInfo}
                 </div>
               )}
-
-              {/* ── Scanned bags list (from scannedBagData) ── */}
-              <div className="sbe-modal__bag-list-head">
-                <span>Scanned Bags</span>
-                <span className="sbe-row-count">{availableScannedBags.length}</span>
-              </div>
-              <div className="sbe-modal__bag-list">
-                {availableScannedBags.length === 0 ? (
-                  <div className="sbe-modal__bag-empty">
-                    No unassigned scanned bags available.
-                  </div>
-                ) : (
-                  availableScannedBags.map((b, i) => (
-                    <button
-                      key={`${b.rfbag}_${i}`}
-                      type="button"
-                      className="sbe-modal__bag-item"
-                      onClick={() => handleAssignFromList(b)}
-                      style={{ '--ic': getMaterialColor(b.itemid) }}
-                    >
-                      <span className="sbe-modal__bag-no">{b.rfbag}</span>
-                      <span className="sbe-modal__bag-spec">
-                        {b.shape} · {b.quality} · {b.color_name} · {b.size}
-                        {b.itemid === 5 && (b.findingtypename || b.findingAccessories)
-                          ? ` · ${b.findingtypename} ${b.findingAccessories}`.trim()
-                          : ''}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
             </div>
             <div className="sbe-modal__footer">
               <Button variant="outlined" onClick={closeBagModal}>Close</Button>

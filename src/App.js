@@ -170,11 +170,8 @@ function App() {
 export default App;
 
 
-// 1/9467
-// 1/9468
-
-
-
+    // 1/9467
+    // 1/9468
 
 			// select 
 			// 	 id as txnid

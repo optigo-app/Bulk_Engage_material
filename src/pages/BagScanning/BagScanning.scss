@@ -92,6 +92,40 @@
     flex-shrink: 0;
   }
 
+  &__jobs-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  &__jobs-collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 25px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    cursor: pointer;
+
+    svg {
+      transform: rotate(90deg);
+      transition: transform 0.2s ease;
+    }
+
+    &--collapsed svg {
+      transform: rotate(0deg);
+    }
+
+    &:hover {
+      color: var(--primary-light);
+      border-color: var(--primary);
+    }
+  }
+
   &__jobs-count {
     display: inline-flex;
     align-items: baseline;
@@ -260,7 +294,7 @@
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: $border-radius;
-    padding: 20px;
+    padding: 60px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -512,8 +546,6 @@
     // ── Scanned state — immediate, no delay ──
     &--scanned {
       border-color: color-mix(in srgb, var(--success) 50%, transparent);
-      background: color-mix(in srgb, var(--success) 6%, var(--bg-card));
-      // Transition background smoothly when state changes
       transition:
         background 0.2s ease,
         border-color 0.2s ease;
@@ -740,6 +772,41 @@
     }
   }
 
+  // ── Expand All / Collapse All row ──
+  &__expand-all-row {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
+
+  &__expand-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border-color));
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    color: var(--primary-light);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--primary) 16%, transparent);
+      border-color: var(--primary);
+    }
+  }
+
+  &__expand-all-icon {
+    transition: transform 0.2s ease;
+
+    &--open {
+      transform: rotate(90deg);
+    }
+  }
+
   &__filter-pills {
     display: flex;
     gap: 8px;
@@ -770,16 +837,91 @@
       color: var(--primary-light);
     }
   }
+
 }
 
 // ─────────────────────────────────────────────────────────────
-// Add these rules into BagScanning.scss (inside the existing
-// .bag-scanning block). They style the new grouped "material"
-// card used by the Available view.
+// Rules for the grouped "material" card used by the Available view.
 // ─────────────────────────────────────────────────────────────
 
 .bag-scanning__bag-card--material {
   align-items: flex-start;
+  position: relative;
+}
+
+// ── Single-line summary row (always visible, click to expand) ──
+.bag-scanning__bag-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+
+  &:hover {
+    .bag-scanning__bag-jobnumber,
+    .bag-scanning__bag-type--inline {
+      color: var(--primary-light);
+    }
+  }
+}
+
+.bag-scanning__bag-expand-caret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+
+  &--open {
+    transform: rotate(90deg);
+  }
+}
+
+.bag-scanning__bag-type--inline {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.bag-scanning__bag-meta--inline {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bag-scanning__bag-badge--inline {
+  flex-shrink: 0;
+}
+
+// ── Smooth expand/collapse for the RM chip list + input details ──
+.bag-scanning__bag-detail-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+  width: 100%;
+
+  &--open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.bag-scanning__bag-detail-inner {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.bag-scanning__bag-detail-collapse--open .bag-scanning__bag-detail-inner {
+  padding-top: 8px;
 }
 
 .bag-scanning__bag-chip-list {
@@ -845,6 +987,12 @@
   }
 }
 
+// ── Inline tick icon shown before the rfbag text on a scanned chip ──
+.bag-scanning__bag-chip-tick {
+  color: #15803d;
+  flex-shrink: 0;
+}
+
 .bag-scanning__bag-chip-remove {
   display: inline-flex;
   align-items: center;
@@ -891,6 +1039,16 @@
   margin-top: 4px;
   background: #f1f5f9;
   color: #475569;
+}
+
+// ── Scan-progress badge, fully-scanned state (green + tick) ──
+.bag-scanning__bag-badge--scan-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success-light);
+  font-weight: 700;
 }
 
 @keyframes bagChipPop {

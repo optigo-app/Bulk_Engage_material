@@ -7,9 +7,7 @@ import './ScanJobs.scss';
 import { getMaster } from '../../Utils/masterStore';
 
 let jobCounter = 1;
-
 const getJobList = () => getMaster('allJobListData', []);
-
 const getJobMaterialData = () => getMaster('allJobMaterialData', []);
 
 const ScanJobs = () => {
@@ -480,9 +478,9 @@ const ScanJobs = () => {
             <div className="scan-jobs__result-content">
               <h2 className="scan-jobs__result-title">All Jobs Verified!</h2>
               <p className="scan-jobs__result-sub">
-                {verificationResult.validJobs.length} job{verificationResult.validJobs.length !== 1 ? 's' : ''} are ready for bag scanning.
+                all are ready for bag scanning.
               </p>
-              <div className="scan-jobs__result-list">
+              {/* <div className="scan-jobs__result-list">
                 {verificationResult.validJobs.map((j) => (
                   <div key={j.id} className="scan-jobs__result-row scan-jobs__result-row--valid">
                     <CheckCircle2 size={14} />
@@ -491,7 +489,7 @@ const ScanJobs = () => {
                     <span className="scan-jobs__result-row-badge scan-jobs__result-row-badge--valid">Valid</span>
                   </div>
                 ))}
-              </div>
+              </div> */}
               <div className="scan-jobs__result-actions scan-jobs__result-actions--split">
                 <Button variant="outlined" color="primary" size="large"
                   onClick={handleAddMoreJobs} startIcon={<PlusCircle size={18} />}
@@ -522,14 +520,14 @@ const ScanJobs = () => {
                 <strong>{verificationResult.invalidJobs.length}</strong> job{verificationResult.invalidJobs.length !== 1 ? 's' : ''} were not found in the system.
               </p>
               <div className="scan-jobs__result-list">
-                {verificationResult.validJobs.map((j) => (
+                {/* {verificationResult.validJobs.map((j) => (
                   <div key={j.id} className="scan-jobs__result-row scan-jobs__result-row--valid">
                     <CheckCircle2 size={14} />
                     <span className="scan-jobs__result-row-id">{j.serialjobno}</span>
                     {j.category && <span className="scan-jobs__result-row-meta">{j.category}</span>}
                     <span className="scan-jobs__result-row-badge scan-jobs__result-row-badge--valid">Valid</span>
                   </div>
-                ))}
+                ))} */}
                 {verificationResult.invalidJobs.map((j) => (
                   <div key={j.id} className="scan-jobs__result-row scan-jobs__result-row--invalid">
                     <XCircle size={14} />

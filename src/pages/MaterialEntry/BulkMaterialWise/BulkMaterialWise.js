@@ -860,7 +860,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
             </div>
 
             {/* Add */}
-            <Button
+            {/* <Button
               variant="contained"
               size="small"
               startIcon={<Plus size={13} />}
@@ -868,7 +868,7 @@ const BulkMaterialWise = ({ state, actions, onRegisterContinue }) => {
               onClick={() => setShowModal(true)}
             >
               Add Material
-            </Button>
+            </Button> */}
 
             {/* Auto fill */}
             <FormControlLabel

@@ -532,21 +532,26 @@ const JobBlock = ({
         </span>
         <span className="bse-job-id">{job.id}</span>
         <div className="bse-pills">
-          <div>
+          {/* <div>
             {Object.entries(groups).map(([item, v]) => (
               <span key={item} className="bse-pill" style={{ '--pc': matColor(item) }}>
                 <b>{matLabel(item)}</b>{v.wt.toFixed(3)} ctw · {v.pcs} pcs
               </span>
             ))}
-          </div>
+          </div> */}
           <div>
-            <span className="bse-job-meta">
+            {/* <span className="bse-job-meta">
               <span>Design#: <strong>{jobMeta.design || '—'}</strong></span>
               <span>Serial for: <strong>{jobMeta.category || '—'}</strong></span>
               <span>Customer: <strong>{jobMeta.ccode || '—'}</strong></span>
               <span>Metal: <strong>{jobMeta.metal || '—'}</strong></span>
               <span>Color: <strong>{jobMeta.color || '—'}</strong></span>
               <span>Current Status: <strong>{jobMeta.status || '—'}</strong></span>
+            </span> */}
+            <span className="bse-job-meta">
+              <span><strong>{jobMeta.ccode || '—'} - {jobMeta.status || '—'}</strong></span>
+              <span> <strong> - {jobMeta.design || '—'} ({jobMeta.category || '—'})</strong></span>
+              <span><strong> - {jobMeta.metal || '—'} {jobMeta.color || '—'}</strong></span>
             </span>
           </div>
         </div>
@@ -1403,7 +1408,7 @@ const BulkSingleEntry = ({ state, actions, onRegisterContinue }) => {
                 color="primary"
               />
             }
-            label="Auto Fill"
+            label="Auto Fill Wt"
           />
         </div>
 
